@@ -78,6 +78,16 @@ browser/Google Password Manager entries. It requires the non-secret
 `ROCKSERVER_CLEANUP_ENV=staging` guard, and the deployment wrapper exposes it only through the
 existing root-scoped operator command path.
 
+The RM-012-A migration adds account-owned personal data: `favourite_records` and
+`history_records` keyed by `(user_id, record_id)` with nullable station and deletion markers,
+plus one shared monotonic revision sequence used as the per-account sync cursor. Pushes apply
+last-writer-wins on `updated_at` inside the synchronize transaction; live collections stay
+bounded at 500 rows each, history past 90 days expires at push time, tombstones are
+garbage-collected after 90 days, and rows of accounts deleted more than 30 days ago are purged
+by the retention sweep. `POST /api/v1/sync` authenticates with the native device-session Bearer
+and returns the account delta plus echoes of pushed records, so a rejected stale push never
+loops.
+
 When `DATABASE_URL` is absent, startup selects `InMemoryStationRepository`; both choices are logged by backend name without logging a DSN or password. SQL uses runtime-checked queries rather than compile-time query macros, so normal builds do not require a live database. `compose.yaml` uses a pgvector-capable PostgreSQL 17 image with development-only defaults and a healthcheck. Import and embedding backfill always require `DATABASE_URL` and never fall back to memory.
 
 Hybrid scoring normalizes cosine similarity with `1 - cosine_distance / 2`, clamps it to `[0,1]`, and uses `0.70 * metadata_score + 0.30 * semantic_score` for compatible pairs. A station missing a compatible embedding keeps its unscaled metadata score. Without a valid query embedding, the existing metadata-only inclusion and score remain unchanged. Hard filters and exclusions are in the candidate CTE, before scoring and final limit; station ID ascending is the final deterministic tie-break.

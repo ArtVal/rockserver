@@ -29,6 +29,7 @@ import work.
 | `device_control_presence`, `device_control_state` | Bounded live connection registry, presence, state cache, and internal fan-out. | Connection lifetime or observed device state. |
 | `http` | Axum DTOs, authentication at transport boundaries, routing, errors, and WebSocket lifecycle. | HTTP/WebSocket behavior or OpenAPI changes. |
 | `mobile_export` | Deterministic SQLite export for RockMobile offline catalog use. | Mobile catalog export. |
+| `personal_data` | Account-owned favourites and playback-history sync domain: validated records, last-writer-wins merge, bounds, retention, and the store contract. | Personal-data sync records, limits, or persistence. |
 | `persistence` | PostgreSQL implementations, migrations, and startup backend selection. | SQL, durable state, or repository wiring. |
 | `providers` | Bounded adapters for Radio Browser, Yandex, and embedding providers. | External-service request/response mechanics. |
 | `search` | Normalized query, parsing/embedding traits, filters, ranking, and station repository contract. | Search meaning, ranking, or repository-neutral behavior. |

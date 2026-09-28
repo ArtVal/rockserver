@@ -1,6 +1,36 @@
 # Project status
 
-Last updated: 2026-09-26
+Last updated: 2026-09-28
+
+## RM-012-A: server-side personal-data sync (implemented locally, 2026-09-28)
+
+RockServer now stores account-owned favourites and playback history and exposes one
+authenticated push+pull round trip, `POST /api/v1/sync` (OpenAPI 0.6.0), behind the native
+device-session Bearer. Changes merge last-writer-wins per client `record_id` on `updated_at`
+(equal instants keep the stored row); a shared monotonic revision sequence gives each device a
+per-account delta cursor, and tombstones carry deletions to devices that were offline when the
+deletion happened. `since_revision` 0/absent returns the full account snapshot; responses echo
+pushed losers, so a stale push converges instead of looping. Server bounds mirror the RM-007-A
+client contract: 500 live favourites, 500 live history entries, 300 batch items per collection,
+4 KiB metadata, 256 KiB body budget, 90-day history retention (enforced at push time and by an
+hourly per-process fleet sweep), 90-day tombstone GC, and personal-row purge for accounts
+deleted more than 30 days ago. Station IDs stay opaque; unresolved references are preserved,
+never rejected. Cursors are per device. Known v1 limitations: two devices recording the same
+listening session produce two history rows (five-minute coalescing remains a client rule), and
+the browser console has no personal-data view.
+New code: `src/personal_data.rs` (domain + in-memory store fake), 
+`src/persistence/personal_data_postgres.rs` (migration `0025_add_personal_data_sync.sql`),
+`src/http/sync.rs`; the native-endpoint auth/throttle helper was extracted into
+`src/http/control_auth.rs` and is now shared with the device catalog routes.
+Verification: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
+and `cargo test` all green. The opt-in
+`postgres_personal_data_sync_is_last_writer_wins_and_cursor_scoped` test passed against a
+disposable PostgreSQL 16 (pgvector) container covering LWW, per-device cursors, tombstone
+propagation, push-time and sweep retention, and deleted-account purge. Five other opt-in
+PostgreSQL tests fail on this machine identically on clean `master` (device-control manifest,
+admin bootstrap/identity, account cleanup, session rotation) and are unrelated to this change.
+Not deployed yet. Next step: client integration in the RockCast and RockMobile repositories
+(RM-012-B).
 
 ## Device playback track metadata (2026-09-26)
 

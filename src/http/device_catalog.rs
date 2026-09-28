@@ -5,22 +5,20 @@
 //! `station.play_station` dispatch (RS-1 contract, openapi 0.5.0).
 
 use axum::{
-    Json,
     extract::{Query, State, rejection::QueryRejection},
-    http::{HeaderMap, StatusCode, header},
-    response::{IntoResponse, Response},
+    http::{HeaderMap, StatusCode},
+    response::Response,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::device_control_auth::DeviceControlAuthenticationError;
 use crate::search::{QueryParserInput, SearchConstraints, Station, StationHealth};
 
 use super::{
-    control_auth::authenticate_control_ingress,
+    control_auth::authenticate_and_throttle,
     search::is_valid_locale,
     state::{AppState, PublicLimit},
-    transport::{error_response, request_id, retry_after, unauthorized_response, with_request_id},
+    transport::{error_response, no_store_json_response, request_id},
 };
 
 const DEVICE_CATALOG_BROWSE_LIMIT: PublicLimit = PublicLimit {
@@ -180,7 +178,7 @@ pub(super) async fn browse(
         .then(|| stations.last().map(|station| station.id.clone()))
         .flatten();
     tracing::info!(%request_id, endpoint = "device_catalog_browse", status = 200, stations = stations.len(), "device catalog request completed");
-    device_page_response(
+    no_store_json_response(
         DeviceCatalogPageDto {
             request_id: request_id.clone(),
             stations: stations.iter().map(DeviceStationDto::from).collect(),
@@ -290,7 +288,7 @@ pub(super) async fn search(
         }
     };
     tracing::info!(%request_id, endpoint = "device_catalog_search", status = 200, stations = outcome.stations.len(), "device catalog request completed");
-    device_page_response(
+    no_store_json_response(
         DeviceSearchPageDto {
             request_id: request_id.clone(),
             stations: outcome
@@ -302,65 +300,4 @@ pub(super) async fn search(
         },
         &request_id,
     )
-}
-
-/// Authenticates the native device session, then applies the endpoint's per-device quota.
-///
-/// Returns the authenticated device identifier, or a built response: retryable 503 when the
-/// native-session resolver is not configured or temporarily unavailable, generic 401 for an
-/// absent, malformed, expired, revoked, or non-native credential, and 429 when the device
-/// exhausted its quota. The bearer value itself is never logged.
-async fn authenticate_and_throttle(
-    state: &AppState,
-    headers: &HeaderMap,
-    endpoint: &'static str,
-    limit: PublicLimit,
-    request_id: &str,
-) -> Result<uuid::Uuid, Response> {
-    let Some(resolver) = state.control_session_resolver.as_ref() else {
-        return Err(retry_after(
-            error_response(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "control_auth_unavailable",
-                "Device control authentication is temporarily unavailable.",
-                request_id,
-                json!({}),
-            ),
-            1,
-        ));
-    };
-    let principal = match authenticate_control_ingress(headers, resolver.as_ref()).await {
-        Ok(principal) => principal,
-        Err(DeviceControlAuthenticationError::InvalidCredential) => {
-            return Err(unauthorized_response(request_id));
-        }
-        Err(DeviceControlAuthenticationError::Unavailable) => {
-            return Err(retry_after(
-                error_response(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "control_auth_unavailable",
-                    "Device control authentication is temporarily unavailable.",
-                    request_id,
-                    json!({}),
-                ),
-                1,
-            ));
-        }
-    };
-    if let Err(response) =
-        state.device_request_allowed(endpoint, principal.device_id, limit, request_id)
-    {
-        return Err(*response);
-    }
-    Ok(principal.device_id)
-}
-
-/// Serializes a device catalog page with the contract's no-store cache policy.
-fn device_page_response(payload: impl Serialize, request_id: &str) -> Response {
-    let mut response = with_request_id(Json(payload).into_response(), request_id);
-    response.headers_mut().insert(
-        header::CACHE_CONTROL,
-        header::HeaderValue::from_static("no-store"),
-    );
-    response
 }

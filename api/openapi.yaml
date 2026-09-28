@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RockServer API
-  version: 0.5.0
+  version: 0.6.0
   description: >-
     Contract for RockServer operational health checks, deterministic station search, and the
     Windows voice-command JSON and streaming boundaries. `POST /api/v1/voice/command` resolves
@@ -792,6 +792,45 @@ paths:
         "204": { description: Device revoked. }
         "401": { $ref: "#/components/responses/AuthenticationRequired" }
         "404": { description: Device is unknown or belongs to another account. }
+  /api/v1/sync:
+    post:
+      operationId: syncPersonalData
+      summary: Push one batch of favourites and history changes and pull the account delta
+      description: >-
+        One authenticated push+pull round trip for the RM-007-A personal profile (RM-012-A).
+        Changes merge last-writer-wins per record on `updated_at`; the response carries every
+        record the caller must apply (including tombstones) plus the monotonic cursor to send
+        as the next `since_revision`. A zero or absent cursor returns the full account
+        snapshot. Cursors are per device: each device persists its own last cursor.
+      security:
+        - RockserverBearer: []
+      x-rockserver-status: implemented
+      x-personal-data-policy:
+        max_favourites_per_account: 500
+        max_history_per_account: 500
+        max_batch_items_per_collection: 300
+        history_retention_days: 90
+        tombstone_retention_days: 90
+        deleted_account_purge_days: 30
+        max_request_body_bytes: 262144
+        max_metadata_bytes: 4096
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonalSyncRequest" }
+      responses:
+        "200":
+          description: Changes applied; the payload contains the new cursor and both collection deltas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalSyncResponse" }
+        "400": { description: Request body is not valid JSON. }
+        "401": { $ref: "#/components/responses/AuthenticationRequired" }
+        "413": { description: Batch body exceeded the sync byte budget. }
+        "422": { description: Batch validation failed or a bounded collection size would be exceeded. }
+        "429": { description: The device exhausted its sync quota. }
+        "503": { description: Personal-data persistence is temporarily unavailable. }
   /api/v1/browser/devices/{device_id}:
     patch:
       operationId: renameBrowserOwnedDevice
@@ -3324,3 +3363,133 @@ components:
         details:
           type: object
           additionalProperties: true
+    PersonalSyncRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        since_revision:
+          type: integer
+          minimum: 0
+          description: >-
+            Cursor from this device's last successful sync; zero or absent returns the full
+            account snapshot.
+        favourites: { $ref: "#/components/schemas/FavouriteChanges" }
+        history: { $ref: "#/components/schemas/HistoryChanges" }
+      description: >-
+        One device's pushed personal-data changes. Both collections are optional; empty
+        requests are valid pulls.
+    FavouriteChanges:
+      type: object
+      additionalProperties: false
+      properties:
+        upserts:
+          type: array
+          maxItems: 300
+          items: { $ref: "#/components/schemas/FavouriteUpsert" }
+        deletes:
+          type: array
+          maxItems: 300
+          items: { $ref: "#/components/schemas/RecordDelete" }
+    HistoryChanges:
+      type: object
+      additionalProperties: false
+      properties:
+        upserts:
+          type: array
+          maxItems: 300
+          items: { $ref: "#/components/schemas/HistoryUpsert" }
+        deletes:
+          type: array
+          maxItems: 300
+          items: { $ref: "#/components/schemas/RecordDelete" }
+    FavouriteUpsert:
+      type: object
+      additionalProperties: false
+      required: [record_id, station_id, added_at, updated_at]
+      properties:
+        record_id: { type: string, format: uuid }
+        station_id: { type: string, minLength: 1, maxLength: 256 }
+        added_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    HistoryUpsert:
+      type: object
+      additionalProperties: false
+      required: [record_id, station_id, started_at, last_played_at, updated_at]
+      properties:
+        record_id: { type: string, format: uuid }
+        station_id: { type: string, minLength: 1, maxLength: 256 }
+        started_at: { type: string, format: date-time }
+        last_played_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        play_duration_ms: { type: integer, minimum: 0 }
+        metadata: { type: object }
+        updated_at: { type: string, format: date-time }
+      description: >-
+        One client listening-session record. Five-minute coalescing of retries stays a
+        client-side rule; the server stores entries as pushed.
+    RecordDelete:
+      type: object
+      additionalProperties: false
+      required: [record_id, updated_at]
+      properties:
+        record_id: { type: string, format: uuid }
+        updated_at: { type: string, format: date-time }
+      description: >-
+        Deletion marker; `updated_at` arms the tombstone so an older upsert replay cannot
+        resurrect the record.
+    PersonalSyncResponse:
+      type: object
+      additionalProperties: false
+      required: [server_revision, server_time, favourites, history]
+      properties:
+        server_revision:
+          type: integer
+          minimum: 0
+          description: Cursor to persist and send as the next `since_revision`.
+        server_time: { type: string, format: date-time }
+        favourites:
+          type: object
+          additionalProperties: false
+          required: [records]
+          properties:
+            records:
+              type: array
+              items: { $ref: "#/components/schemas/PersonalFavouriteRecord" }
+        history:
+          type: object
+          additionalProperties: false
+          required: [records]
+          properties:
+            records:
+              type: array
+              items: { $ref: "#/components/schemas/PersonalHistoryRecord" }
+      description: >-
+        Every record the caller must apply: account rows past the caller's cursor plus
+        echoes of pushed records, including tombstones for propagated deletions.
+    PersonalFavouriteRecord:
+      type: object
+      additionalProperties: false
+      required: [record_id, added_at, updated_at]
+      properties:
+        record_id: { type: string, format: uuid }
+        station_id: { type: string, minLength: 1 }
+        added_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        deleted_at: { type: string, format: date-time }
+      description: >-
+        Tombstoned records keep their last known station; a `deleted_at` presence means the
+        caller must delete the record locally.
+    PersonalHistoryRecord:
+      type: object
+      additionalProperties: false
+      required: [record_id, started_at, last_played_at, updated_at]
+      properties:
+        record_id: { type: string, format: uuid }
+        station_id: { type: string, minLength: 1 }
+        started_at: { type: string, format: date-time }
+        last_played_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        play_duration_ms: { type: integer, minimum: 0 }
+        metadata: { type: object }
+        updated_at: { type: string, format: date-time }
+        deleted_at: { type: string, format: date-time }

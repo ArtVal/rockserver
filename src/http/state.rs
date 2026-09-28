@@ -20,6 +20,7 @@ use crate::{
     device_control_presence::ConnectionRegistry,
     device_control_state::StateHub,
     persistence::PostgresAccountStore,
+    personal_data::PersonalDataStore,
     providers::yandex_home::YandexHomeClient,
     search::SearchService,
     station_icons::IconImportCoordinator,
@@ -80,6 +81,8 @@ pub(super) struct AppState {
     pub(super) control_store: Option<Arc<dyn DeviceControlStore>>,
     /// Resolver used only by the native device-control ingress before WebSocket upgrade.
     pub(super) control_session_resolver: Option<Arc<dyn NativeSessionResolver>>,
+    /// Durable account-owned personal-data store backing `POST /api/v1/sync`.
+    pub(super) personal_store: Option<Arc<dyn PersonalDataStore>>,
     /// Durable administrator-started station-icon importer when its storage root is configured.
     pub(super) icon_import: Option<Arc<IconImportCoordinator>>,
     /// Optional read-only Yandex Smart Home client configured for browser accounts.

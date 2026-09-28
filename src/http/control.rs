@@ -590,6 +590,7 @@ mod tests {
             control_state_hub: hub,
             control_store: None,
             control_session_resolver: Some(resolver),
+            personal_store: None,
             icon_import: None,
             yandex_home: None,
             control_timing: ControlTiming {

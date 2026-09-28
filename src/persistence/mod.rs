@@ -5,6 +5,7 @@ mod admin_postgres;
 mod device_control_postgres;
 mod embedding_postgres;
 mod import_postgres;
+mod personal_data_postgres;
 mod postgres;
 
 use std::{env, io, sync::Arc};
@@ -18,6 +19,7 @@ pub use admin_postgres::PostgresAdminStore;
 pub use device_control_postgres::PostgresDeviceControlStore;
 pub use embedding_postgres::PostgresEmbeddingStore;
 pub use import_postgres::{OwnedCatalogReplacement, PostgresImportStore};
+pub use personal_data_postgres::PostgresPersonalDataStore;
 pub use postgres::PostgresStationRepository;
 
 use crate::search::StationRepository;

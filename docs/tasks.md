@@ -1,5 +1,22 @@
 # Task log
 
+## 2026-09-28 — RM-012-A: personal-data sync (favourites + history)
+
+- Goal: give RockCast and RockMobile one server-held copy of favourites and listen history so
+  both devices always converge on the same profile.
+- Scope: migration `0025_add_personal_data_sync.sql` (`favourite_records`, `history_records`,
+  shared monotonic revision sequence); `personal_data` domain owning LWW merge, tombstones,
+  bounds, and retention; `PostgresPersonalDataStore`; one `POST /api/v1/sync` endpoint with the
+  contract promoted to OpenAPI 0.6.0; hourly opportunistic retention sweep; deleted-account row
+  purge. The native-endpoint authenticate-and-throttle helper was extracted to `control_auth.rs`
+  and reused by the device catalog (no duplicated auth logic). Clients are unchanged — client
+  integration is a separate task in their repositories (RM-012-B).
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and
+  `cargo test` passed; the opt-in PostgreSQL integration test passed against a disposable
+  pgvector container. Five pre-existing opt-in PostgreSQL test failures reproduce identically
+  on clean `master` and are unrelated.
+- Status: implemented locally, not deployed.
+
 ## 2026-09-26 — DC playback track metadata
 
 - Goal: expose the current track observed by RockCast to the remote RockMobile player.

@@ -39,6 +39,28 @@ pub(super) async fn parse_json_request<T>(
 where
     T: DeserializeOwned,
 {
+    parse_json_request_with_limit(
+        headers,
+        body,
+        request_id,
+        MAX_PUBLIC_JSON_REQUEST_BODY_BYTES,
+    )
+    .await
+}
+
+/// Parses a JSON body under an endpoint-specific byte budget.
+///
+/// Batch endpoints such as personal-data sync legitimately exceed the default public body
+/// cap, so they opt into a larger budget; everything else keeps the 16 KiB default.
+pub(super) async fn parse_json_request_with_limit<T>(
+    headers: &HeaderMap,
+    body: Body,
+    request_id: &str,
+    max_bytes: usize,
+) -> Result<T, Response>
+where
+    T: DeserializeOwned,
+{
     if !is_json_content_type(headers) {
         return Err(error_response(
             StatusCode::BAD_REQUEST,
@@ -48,17 +70,15 @@ where
             json!({"content_type": "application/json is required"}),
         ));
     }
-    let body = to_bytes(body, MAX_PUBLIC_JSON_REQUEST_BODY_BYTES)
-        .await
-        .map_err(|_| {
-            error_response(
-                StatusCode::PAYLOAD_TOO_LARGE,
-                "request_too_large",
-                "Request body exceeds the allowed size.",
-                request_id,
-                json!({"max_bytes": MAX_PUBLIC_JSON_REQUEST_BODY_BYTES}),
-            )
-        })?;
+    let body = to_bytes(body, max_bytes).await.map_err(|_| {
+        error_response(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "request_too_large",
+            "Request body exceeds the allowed size.",
+            request_id,
+            json!({"max_bytes": max_bytes}),
+        )
+    })?;
     let value = serde_json::from_slice::<Value>(&body).map_err(|_error| {
         error_response(
             StatusCode::BAD_REQUEST,
@@ -149,6 +169,15 @@ pub(super) fn with_request_id(mut response: Response, request_id: &str) -> Respo
     response
         .headers_mut()
         .insert(REQUEST_ID_HEADER, header_value);
+    response
+}
+
+/// Serializes a JSON payload with the contract's no-store cache policy.
+pub(super) fn no_store_json_response(payload: impl Serialize, request_id: &str) -> Response {
+    let mut response = with_request_id(Json(payload).into_response(), request_id);
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
 }
 

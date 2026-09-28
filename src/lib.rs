@@ -32,6 +32,8 @@ pub mod http;
 pub mod mobile_export;
 /// Persistent station-catalog backends and startup selection.
 pub mod persistence;
+/// Account-owned favourites and playback-history sync domain (RM-012-A).
+pub mod personal_data;
 /// External catalog providers used only by explicit background workflows.
 pub mod providers;
 /// Deterministic station-search domain and catalog boundary.

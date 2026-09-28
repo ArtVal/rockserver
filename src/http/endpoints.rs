@@ -12,7 +12,10 @@ use tracing::Level;
 
 use crate::{
     device_control_command::CommandRouter,
-    persistence::{PostgresAccountStore, PostgresAdminStore, PostgresDeviceControlStore},
+    persistence::{
+        PostgresAccountStore, PostgresAdminStore, PostgresDeviceControlStore,
+        PostgresPersonalDataStore,
+    },
     providers::yandex_home::YandexHomeClient,
     search::{
         InMemoryStationRepository, SearchService, StationRepository, UnavailableStationRepository,
@@ -53,6 +56,8 @@ mod search;
 mod state;
 #[path = "station_icons.rs"]
 mod station_icons;
+#[path = "sync.rs"]
+mod sync;
 #[path = "transport.rs"]
 mod transport;
 #[path = "voice.rs"]
@@ -206,6 +211,7 @@ pub fn router_with_speech_recognizers_and_bearer_token(
         control_state_hub: Default::default(),
         control_store: None,
         control_session_resolver: None,
+        personal_store: None,
         icon_import: None,
         yandex_home: None,
         control_timing: Default::default(),
@@ -239,6 +245,41 @@ pub fn router_with_search_service_and_native_session_resolver(
         control_state_hub: Default::default(),
         control_store: None,
         control_session_resolver: Some(session_resolver),
+        personal_store: None,
+        icon_import: None,
+        yandex_home: None,
+        control_timing: Default::default(),
+    })
+}
+
+/// Creates a router with an explicit personal-data store and native-session resolver.
+///
+/// Offline tests use this to exercise `POST /api/v1/sync` against a deterministic store;
+/// production routers derive both from the PostgreSQL account store instead.
+pub fn router_with_personal_data_and_native_session_resolver(
+    search_service: SearchService,
+    voice_command_timeout: Duration,
+    session_resolver: Arc<dyn crate::auth::NativeSessionResolver>,
+    personal_store: Arc<dyn crate::personal_data::PersonalDataStore>,
+) -> Router {
+    let control_commands = station_resolving_command_router(&search_service);
+    build_router(AppState {
+        search_service,
+        speech_recognizers: SpeechRecognizers::same(Arc::new(UnavailableSpeechRecognizer)),
+        voice_command_interpreter: Arc::new(DeterministicCommandInterpreter),
+        voice_command_timeout,
+        api_bearer_token: TEST_API_BEARER_TOKEN.to_owned(),
+        account_store: None,
+        admin_store: None,
+        trusted_proxy_token: None,
+        local_admin_origin: local_admin_origin_from_env(),
+        public_limits: Arc::new(Mutex::new(PublicLimitState::default())),
+        control_registry: Default::default(),
+        control_commands,
+        control_state_hub: Default::default(),
+        control_store: None,
+        control_session_resolver: Some(session_resolver),
+        personal_store: Some(personal_store),
         icon_import: None,
         yandex_home: None,
         control_timing: Default::default(),
@@ -276,6 +317,8 @@ pub fn router_with_speech_recognizers_bearer_account_store_and_proxy(
         Arc::new(account_store.clone());
     let control_store: Arc<dyn crate::device_control::DeviceControlStore> =
         Arc::new(PostgresDeviceControlStore::from_pool(account_store.pool()));
+    let personal_store: Arc<dyn crate::personal_data::PersonalDataStore> =
+        Arc::new(PostgresPersonalDataStore::from_pool(account_store.pool()));
     let icon_import = station_icon_import_from_env(account_store.pool());
     let control_commands = station_resolving_command_router(&search_service);
     build_router(AppState {
@@ -294,6 +337,7 @@ pub fn router_with_speech_recognizers_bearer_account_store_and_proxy(
         control_state_hub: Default::default(),
         control_store: Some(control_store),
         control_session_resolver: Some(control_session_resolver),
+        personal_store: Some(personal_store),
         icon_import,
         yandex_home: None,
         control_timing: Default::default(),
@@ -342,6 +386,8 @@ pub fn router_with_speech_recognizers_bearer_account_admin_store_proxy_and_voice
         Arc::new(account_store.clone());
     let control_store: Arc<dyn crate::device_control::DeviceControlStore> =
         Arc::new(PostgresDeviceControlStore::from_pool(account_store.pool()));
+    let personal_store: Arc<dyn crate::personal_data::PersonalDataStore> =
+        Arc::new(PostgresPersonalDataStore::from_pool(account_store.pool()));
     let icon_import = station_icon_import_from_env(account_store.pool());
     let control_commands = station_resolving_command_router(&search_service);
     build_router(AppState {
@@ -360,6 +406,7 @@ pub fn router_with_speech_recognizers_bearer_account_admin_store_proxy_and_voice
         control_state_hub: Default::default(),
         control_store: Some(control_store),
         control_session_resolver: Some(control_session_resolver),
+        personal_store: Some(personal_store),
         icon_import,
         yandex_home: yandex_home.map(Arc::new),
         control_timing: Default::default(),
@@ -396,6 +443,7 @@ pub fn router_with_device_voice_services(
         control_state_hub: Default::default(),
         control_store: Some(control_store),
         control_session_resolver: Some(session_resolver),
+        personal_store: None,
         icon_import: None,
         yandex_home: None,
         control_timing: Default::default(),
@@ -497,6 +545,7 @@ fn build_router(state: AppState) -> Router {
             "/api/v1/device-control/directory",
             axum::routing::get(directory::get),
         )
+        .route("/api/v1/sync", axum::routing::post(sync::sync_request))
         .route(
             "/api/v1/device-control/catalog/stations",
             axum::routing::get(device_catalog::browse),
@@ -699,6 +748,7 @@ mod tests {
             control_state_hub: Default::default(),
             control_store: None,
             control_session_resolver: None,
+            personal_store: None,
             icon_import: None,
             yandex_home: None,
             control_timing: Default::default(),
@@ -804,6 +854,7 @@ mod tests {
             control_state_hub: Default::default(),
             control_store: None,
             control_session_resolver: None,
+            personal_store: None,
             icon_import: None,
             yandex_home: None,
             control_timing: Default::default(),
@@ -893,6 +944,7 @@ mod tests {
             control_state_hub: Default::default(),
             control_store: None,
             control_session_resolver: None,
+            personal_store: None,
             icon_import: None,
             yandex_home: None,
             control_timing: Default::default(),
