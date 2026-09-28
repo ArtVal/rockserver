@@ -1,5 +1,21 @@
 # Task log
 
+## 2026-09-28 — Opt-in PostgreSQL integration test rot repaired
+
+- Goal: make the opt-in PostgreSQL integration suite trustworthy again; five tests had been
+  failing identically on clean `master` before the personal-data work started.
+- Scope: test-side fixes only. Device-control gap-state expectation updated to the documented
+  full-snapshot overwrite semantics; admin bootstrap records its own refresh request instead
+  of depending on another test's leftovers; admin identity foundation truncates the
+  migration-0019 singleton tables before creating its principal; session rotation asserts the
+  server-stamped `created_at`; account cleanup binds a real `bytea` and expects the
+  deactivation counters to report only rows that deactivation itself flips. The suite's
+  header now documents the required serial run (`--test-threads=1`) because the tests share
+  one database and truncate its admin tables.
+- Checks: `cargo fmt --check`, strict Clippy, `cargo test` green; opt-in suite 12/12 on a
+  fresh disposable pgvector container run serially.
+- Status: complete; no production code changed.
+
 ## 2026-09-28 — RM-012-A: personal-data sync (favourites + history)
 
 - Goal: give RockCast and RockMobile one server-held copy of favourites and listen history so

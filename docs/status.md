@@ -27,10 +27,39 @@ and `cargo test` all green. The opt-in
 `postgres_personal_data_sync_is_last_writer_wins_and_cursor_scoped` test passed against a
 disposable PostgreSQL 16 (pgvector) container covering LWW, per-device cursors, tombstone
 propagation, push-time and sweep retention, and deleted-account purge. Five other opt-in
-PostgreSQL tests fail on this machine identically on clean `master` (device-control manifest,
-admin bootstrap/identity, account cleanup, session rotation) and are unrelated to this change.
+PostgreSQL tests (device-control manifest, admin bootstrap/identity, account cleanup, session
+rotation) had been failing since before this change on clean `master`; they are repaired in
+the follow-up test commit and the full opt-in suite now passes 12/12 when run serially
+(`--test-threads=1`, documented in the test file header — the tests share one database and
+truncate its admin tables, so parallel runs race by construction).
 Not deployed yet. Next step: client integration in the RockCast and RockMobile repositories
 (RM-012-B).
+
+## Opt-in PostgreSQL integration test rot repaired (2026-09-28)
+
+Five opt-in tests had drifted from deliberate production behavior or were never runnable
+in isolation; all fixes are test-side, no production code changed:
+
+- Device-control full state snapshots with a forward revision gap now overwrite the
+  projection (`Accepted`) instead of answering `Resync` — the integration test still expected
+  the pre-RS semantics that the `full_state_outcome` unit test already documents.
+- Admin bootstrap relied on a refresh audit record another test happened to leave behind;
+  it now records its own request through the store and asserts the audit projection,
+  removing the cross-test coupling.
+- Admin identity foundation created a principal without truncating first and died on the
+  migration-0019 singleton (`admin_principals ((true))`); it now establishes the same clean
+  slate as its sibling admin tests.
+- Account session rotation asserted the caller's `created_at: "unused"` placeholder came
+  back from the store; `create_device` stamps creation server-side, so the test now checks
+  the projection fields and that `created_at` is the server-stamped RFC 3339 instant.
+- Account cleanup bound `[45; 32]` (an `integer[]`) to a `bytea` column — `[45u8; 32]` — and
+  expected deactivation counters to include a device and session the test itself had already
+  revoked mid-flight; the counters report rows flipped by the deactivation transaction, and
+  the raw state check below still proves the cascade leaves nothing active.
+
+Verification: fresh disposable pgvector container, `cargo test --test postgres_integration --
+--ignored --test-threads=1` → 12 passed, 0 failed; the standard offline ritual
+(fmt/clippy/test) also green. Parallel execution of this suite remains unsupported by design.
 
 ## Device playback track metadata (2026-09-26)
 

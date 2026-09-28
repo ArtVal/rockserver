@@ -1,4 +1,12 @@
 //! Opt-in integration coverage against a real PostgreSQL test database.
+//!
+//! Every test assumes it owns the database's admin tables and pinned catalog state: several
+//! truncate shared tables to establish their fixture. Run the suite serially against a
+//! disposable database or parallel truncation will race:
+//!
+//! ```text
+//! TEST_DATABASE_URL=... cargo test --test postgres_integration -- --ignored --test-threads=1
+//! ```
 
 use std::{collections::BTreeSet, env, sync::Arc};
 
@@ -151,14 +159,17 @@ async fn postgres_device_control_manifest_is_owner_scoped_and_tombstoned() {
             .unwrap(),
         StoreOutcome::Conflict
     );
+    // A full state snapshot is itself the resync primitive: a forward revision gap (facts
+    // published while disconnected) overwrites the stored projection instead of demanding
+    // an `accepted + 1` successor the device's monotonic counter cannot produce.
     let mut gap_state = state.clone();
     gap_state.state_revision += 2;
     assert_eq!(
         store
-            .store_device_state(owner, DeviceId(device), gap_state)
+            .store_device_state(owner, DeviceId(device), gap_state.clone())
             .await
             .unwrap(),
-        StoreOutcome::Resync
+        StoreOutcome::Accepted
     );
     assert_eq!(
         store
@@ -167,7 +178,7 @@ async fn postgres_device_control_manifest_is_owner_scoped_and_tombstoned() {
             .unwrap()
             .unwrap()
             .state_revision,
-        state.state_revision
+        gap_state.state_revision
     );
     let entity_fixture: Value = serde_json::from_str(include_str!(
         "fixtures/device-control/v1/esp32-temperature-state-client.json"
@@ -364,6 +375,14 @@ async fn postgres_admin_identity_foundation_rejects_invalid_hash_state() {
     let store = PostgresAdminStore::connect(&database_url)
         .await
         .expect("admin migrations must succeed");
+    // The singleton principal from migration 0019 requires a clean slate per test.
+    let pool = PgPool::connect(&database_url).await.unwrap();
+    sqlx::query(
+        "TRUNCATE admin_request_records, admin_security_events, admin_password_credentials, admin_sessions, admin_login_attempts, admin_principals",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let principal_id = Uuid::new_v4();
     store
         .create_principal(AdminPrincipal {
@@ -435,7 +454,6 @@ async fn postgres_admin_identity_foundation_rejects_invalid_hash_state() {
         .await
         .unwrap();
 
-    let pool = PgPool::connect(&database_url).await.unwrap();
     assert!(sqlx::query("INSERT INTO admin_password_credentials (id, principal_id, password_hash) VALUES ($1, $2, $3)")
         .bind(Uuid::new_v4()).bind(principal_id).bind("not-a-hash")
         .execute(&pool).await.is_err());
@@ -516,6 +534,34 @@ async fn postgres_admin_bootstrap_is_atomic_and_idempotent() {
         .unwrap(),
         1
     );
+    // The audit projection is covered here explicitly instead of relying on records another
+    // test happened to leave behind: record one refresh through the store, then read it back.
+    let principal_id = sqlx::query_scalar::<_, Uuid>("SELECT id FROM admin_principals")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let session_id = Uuid::new_v4();
+    store
+        .create_session(NewAdminSession {
+            id: session_id,
+            principal_id,
+            token_hash: SecretHash::new([71; 32]),
+            ttl_seconds: 60,
+        })
+        .await
+        .unwrap();
+    store
+        .record_request(AdminRequestRecord {
+            id: Uuid::new_v4(),
+            request_id: "bootstrap-audit-request".to_owned(),
+            principal_id,
+            session_id,
+            endpoint: "/api/v1/admin/auth/refresh",
+            outcome: AdminRequestOutcome::Succeeded,
+            duration_ms: 1,
+        })
+        .await
+        .unwrap();
     let audit = store
         .list_audit(AdminAuditFilter {
             from: None,
@@ -993,9 +1039,24 @@ async fn postgres_account_session_rotation_deletion_and_ownership() {
             .unwrap(),
         None
     );
-    assert_eq!(
-        store.find_owned_device(owner, device.id).await.unwrap(),
-        Some(device.clone())
+    // The store stamps created_at server-side; the caller's placeholder never persists.
+    let stored = store
+        .find_owned_device(owner, device.id)
+        .await
+        .unwrap()
+        .expect("the owner sees the device");
+    assert_eq!(stored.id, device.id);
+    assert_eq!(stored.user_id, device.user_id);
+    assert_eq!(stored.device_display_name, device.device_display_name);
+    assert_eq!(stored.device_type, device.device_type);
+    assert_eq!(stored.last_seen_at, None);
+    assert!(
+        time::OffsetDateTime::parse(
+            &stored.created_at,
+            &time::format_description::well_known::Rfc3339
+        )
+        .is_ok(),
+        "created_at must be the server-stamped instant, not the caller's placeholder"
     );
 
     let session = Uuid::new_v4();
@@ -1257,7 +1318,7 @@ async fn postgres_account_cleanup_is_preview_first_and_cascade_safe() {
     sqlx::query("INSERT INTO account_identities (id, user_id, kind, subject_hash, subject_ciphertext) VALUES ($1, $2, 'admin', $3, $4)")
         .bind(Uuid::new_v4())
         .bind(protected_account_id)
-        .bind([45; 32].as_slice())
+        .bind([45u8; 32].as_slice())
         .bind(b"protected")
         .execute(&inspection)
         .await
@@ -1286,8 +1347,11 @@ async fn postgres_account_cleanup_is_preview_first_and_cascade_safe() {
         .await
         .unwrap();
     assert_eq!(result.status, "deactivated");
-    assert_eq!(result.revoked.devices, 1);
-    assert_eq!(result.revoked.sessions, 1);
+    // The counts report rows this deactivation flips: the device and its native session were
+    // already revoked by revoke_device_for_operator above, so only the remaining passkey
+    // flips here. The raw state check below proves the cascade leaves nothing active.
+    assert_eq!(result.revoked.devices, 0);
+    assert_eq!(result.revoked.sessions, 0);
     assert_eq!(result.revoked.passkeys, 1);
     let state = sqlx::query_as::<_, (String, bool, bool, bool)>(
         "SELECT u.status, EXISTS(SELECT 1 FROM devices d WHERE d.user_id = u.id AND d.revoked_at IS NULL), EXISTS(SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.revoked_at IS NULL), EXISTS(SELECT 1 FROM browser_sessions b WHERE b.user_id = u.id AND b.revoked_at IS NULL) FROM users u WHERE u.id = $1",
