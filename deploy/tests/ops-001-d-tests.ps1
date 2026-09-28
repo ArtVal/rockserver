@@ -56,7 +56,7 @@ try {
     if ($launcherScript -notmatch 'cmd\.exe /d /c.*ssh-keygen.*-N') { throw 'Windows-safe empty-passphrase SSH key generation is missing' }
     if ($launcherScript -notmatch "DOCKER_HOST -match '\^unix://'" -or $launcherScript -notmatch 'npipe:////\./pipe/docker_engine' -or $launcherScript -notmatch 'docker info --format') { throw 'Windows Docker Engine preflight is missing' }
     if ($launcherScript -notmatch "docker image inspect --format '\{\{json \.Config\.Labels\}\}'" -or $launcherScript -match 'index \.Config\.Labels') { throw 'Windows-safe Docker image revision inspection is missing' }
-    if ($launcherScript -notmatch 'tar\.exe -xOf' -or $launcherScript -notmatch 'blobs/sha256' -or $launcherScript -notmatch 'portableImageId') { throw 'portable image config ID extraction is missing' }
+    if ($launcherScript -notmatch 'System32\\tar\.exe' -or $launcherScript -notmatch '\$tarTool -xOf' -or $launcherScript -notmatch 'blobs/sha256' -or $launcherScript -notmatch 'portableImageId') { throw 'portable image config ID extraction is missing' }
     if ($launcherScript -notmatch 'StdinNull=yes' -or $launcherScript -notmatch 'ServerAliveCountMax=3') { throw 'staging SSH is not protected from an unbounded stdin wait' }
     if ($launcherScript -notmatch '\$nonInteractiveScpOptions' -or $launcherScript -match '& scp -i \$key @nonInteractiveSshOptions' -or $launcherScript -match '\$nonInteractiveScpOptions = @\([^\r\n]*StdinNull=yes') { throw 'SCP has incompatible SSH stdin options' }
 

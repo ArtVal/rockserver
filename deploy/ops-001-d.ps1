@@ -101,7 +101,11 @@ try {
         # Engine loads the platform image's config ID. Read the config digest
         # from this exact tarball so the release summary uses the portable
         # identity that the remote engine will see after docker load.
-        $archiveManifestJson = (& tar.exe -xOf $archive 'manifest.json' | Out-String)
+        # MSYS/GNU tar resolves `C:\...` as a remote `host:file` argument and
+        # fails with "Cannot connect to C:", so prefer the Windows system
+        # bsdtar, which understands drive-letter paths.
+        $tarTool = if ($env:SystemRoot -and (Test-Path "$env:SystemRoot\System32\tar.exe")) { "$env:SystemRoot\System32\tar.exe" } else { 'tar.exe' }
+        $archiveManifestJson = (& $tarTool -xOf $archive 'manifest.json' | Out-String)
         if ($LASTEXITCODE -ne 0) { throw 'Could not read manifest.json from the local image artifact.' }
         $archiveManifest = @(ConvertFrom-Json -InputObject $archiveManifestJson)
         if ($archiveManifest.Count -ne 1 -or [string]$archiveManifest[0].Config -notmatch '^(?:blobs/sha256/)?(?<id>[0-9a-f]{64})(?:\.json)?$') { throw 'Local image artifact has an invalid manifest config reference.' }
