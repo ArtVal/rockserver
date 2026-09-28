@@ -32,7 +32,11 @@ rotation) had been failing since before this change on clean `master`; they are 
 the follow-up test commit and the full opt-in suite now passes 12/12 when run serially
 (`--test-threads=1`, documented in the test file header — the tests share one database and
 truncate its admin tables, so parallel runs race by construction).
-Not deployed yet. Next step: client integration in the RockCast and RockMobile repositories
+Deployed as commit `2d8e27f` on 2026-09-28 (the release also carries the integration-test
+repair and the Windows tar deploy fix); remote readiness passed, live `GET /health/ready`
+returned 200, and `POST /api/v1/sync` answered the contract 401 `authentication_required`
+without a credential, confirming the route is served and auth-gated. Migration 0025 applied
+at container startup. Next step: client integration in the RockCast and RockMobile repositories
 (RM-012-B).
 
 ## Opt-in PostgreSQL integration test rot repaired (2026-09-28)

@@ -31,7 +31,19 @@
   `cargo test` passed; the opt-in PostgreSQL integration test passed against a disposable
   pgvector container. Five pre-existing opt-in PostgreSQL test failures reproduce identically
   on clean `master` and are unrelated.
-- Status: implemented locally, not deployed.
+- Status: **deployed** as commit `2d8e27f` on 2026-09-28; readiness passed and the live
+  endpoint answered the contract 401 without a credential.
+
+## 2026-09-28 — DEPLOY fix: Windows system tar for the image manifest
+
+- Goal: unblock the release after `tar.exe` resolved to MSYS/GNU tar in a Git Bash session
+  and rejected the `C:\...` archive path as a remote `host:file` pair.
+- Scope: `deploy/ops-001-d.ps1` now resolves `$env:SystemRoot\System32\tar.exe` explicitly
+  for reading the saved image's `manifest.json`; the launcher regression suite asserts the
+  drive-letter-safe resolution.
+- Checks: `deploy/tests/ops-001-d-tests.ps1` passed; the manifest read verified against the
+  saved image before the retry.
+- Status: **deployed** (this fix is the release commit `2d8e27f`).
 
 ## 2026-09-26 — DC playback track metadata
 
