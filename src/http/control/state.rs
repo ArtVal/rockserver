@@ -4,8 +4,8 @@ use uuid::Uuid;
 
 use crate::{
     device_control::{
-        DeviceId, DeviceRuntimeState, DeviceStateDelta, DeviceStateSnapshot, EntityState,
-        RevisionOrder, revision_order,
+        DeviceId, DeviceRole, DeviceRuntimeState, DeviceStateDelta, DeviceStateSnapshot,
+        EntityState, RevisionOrder, revision_order,
     },
     device_control_state::StateHub,
 };
@@ -103,6 +103,24 @@ pub(super) fn entity_revision(
         ),
         None => RevisionOrder::Next,
     }
+}
+
+/// A controller-only device publishes no runtime facts and thus skips the full-state requirement.
+pub(super) fn requires_full_state(roles: &[DeviceRole]) -> bool {
+    roles.iter().any(|role| *role != DeviceRole::Controller)
+}
+
+/// A stale full snapshot never mutates persistence, but it proves the reconnecting player still
+/// has a valid base state and may continue sending heartbeats.
+pub(super) fn accepted_full_snapshot(
+    outcome: Result<crate::device_control::StoreOutcome, crate::device_control::StoreError>,
+) -> bool {
+    matches!(
+        outcome,
+        Ok(crate::device_control::StoreOutcome::Accepted
+            | crate::device_control::StoreOutcome::Replay
+            | crate::device_control::StoreOutcome::Stale)
+    )
 }
 
 #[cfg(test)]

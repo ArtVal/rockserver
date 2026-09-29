@@ -39,9 +39,9 @@ const VOICE_CAPACITY_RETRY_AFTER_SECONDS: u64 = 30;
 
 #[derive(Clone, Copy)]
 /// Server-owned timing policy for a device-control socket.
-pub(super) struct ControlTiming {
-    pub(super) registration_deadline: Duration,
-    pub(super) offline_ttl: Duration,
+pub(crate) struct ControlTiming {
+    pub(crate) registration_deadline: Duration,
+    pub(crate) offline_ttl: Duration,
 }
 
 impl Default for ControlTiming {
@@ -55,48 +55,48 @@ impl Default for ControlTiming {
 
 #[derive(Clone, Copy)]
 /// Per-endpoint anonymous request and burst limits.
-pub(super) struct PublicLimit {
-    pub(super) requests: usize,
-    pub(super) burst: usize,
+pub(crate) struct PublicLimit {
+    pub(crate) requests: usize,
+    pub(crate) burst: usize,
 }
 
 #[derive(Clone)]
-pub(super) struct AppState {
-    pub(super) search_service: SearchService,
-    pub(super) speech_recognizers: SpeechRecognizers,
-    pub(super) voice_command_interpreter: Arc<dyn CommandInterpreter>,
-    pub(super) voice_command_timeout: Duration,
-    pub(super) api_bearer_token: String,
-    pub(super) account_store: Option<PostgresAccountStore>,
-    pub(super) admin_store: Option<Arc<dyn AdminStore>>,
-    pub(super) trusted_proxy_token: Option<String>,
-    pub(super) local_admin_origin: Option<String>,
-    pub(super) public_limits: Arc<Mutex<PublicLimitState>>,
-    pub(super) control_registry: ConnectionRegistry,
+pub(crate) struct AppState {
+    pub(crate) search_service: SearchService,
+    pub(crate) speech_recognizers: SpeechRecognizers,
+    pub(crate) voice_command_interpreter: Arc<dyn CommandInterpreter>,
+    pub(crate) voice_command_timeout: Duration,
+    pub(crate) api_bearer_token: String,
+    pub(crate) account_store: Option<PostgresAccountStore>,
+    pub(crate) admin_store: Option<Arc<dyn AdminStore>>,
+    pub(crate) trusted_proxy_token: Option<String>,
+    pub(crate) local_admin_origin: Option<String>,
+    pub(crate) public_limits: Arc<Mutex<PublicLimitState>>,
+    pub(crate) control_registry: ConnectionRegistry,
     /// Shared bounded command lifecycle router for live control sessions.
-    pub(super) control_commands: CommandRouter,
+    pub(crate) control_commands: CommandRouter,
     /// Ephemeral owner-scoped latest state and bounded internal fan-out.
-    pub(super) control_state_hub: StateHub,
+    pub(crate) control_state_hub: StateHub,
     /// Durable account-owned state projections, configured only for production routers.
-    pub(super) control_store: Option<Arc<dyn DeviceControlStore>>,
+    pub(crate) control_store: Option<Arc<dyn DeviceControlStore>>,
     /// Resolver used only by the native device-control ingress before WebSocket upgrade.
-    pub(super) control_session_resolver: Option<Arc<dyn NativeSessionResolver>>,
+    pub(crate) control_session_resolver: Option<Arc<dyn NativeSessionResolver>>,
     /// Durable account-owned personal-data store backing `POST /api/v1/sync`.
-    pub(super) personal_store: Option<Arc<dyn PersonalDataStore>>,
+    pub(crate) personal_store: Option<Arc<dyn PersonalDataStore>>,
     /// Durable administrator-started station-icon importer when its storage root is configured.
-    pub(super) icon_import: Option<Arc<IconImportCoordinator>>,
+    pub(crate) icon_import: Option<Arc<IconImportCoordinator>>,
     /// Optional read-only Yandex Smart Home client configured for browser accounts.
-    pub(super) yandex_home: Option<Arc<YandexHomeClient>>,
-    pub(super) control_timing: ControlTiming,
+    pub(crate) yandex_home: Option<Arc<YandexHomeClient>>,
+    pub(crate) control_timing: ControlTiming,
 }
 
 #[derive(Default)]
 /// Process-local buckets used by anonymous and per-device HTTP admission control.
-pub(super) struct PublicLimitState {
-    pub(super) requests: HashMap<&'static str, Vec<std::time::Instant>>,
+pub(crate) struct PublicLimitState {
+    pub(crate) requests: HashMap<&'static str, Vec<std::time::Instant>>,
     /// Per-device buckets for authenticated device-facing endpoints, keyed `endpoint:device_id`.
-    pub(super) device_requests: HashMap<String, Vec<std::time::Instant>>,
-    pub(super) active_voice: usize,
+    pub(crate) device_requests: HashMap<String, Vec<std::time::Instant>>,
+    pub(crate) active_voice: usize,
 }
 
 impl AppState {

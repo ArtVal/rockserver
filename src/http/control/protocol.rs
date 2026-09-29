@@ -8,7 +8,9 @@ use serde_json::Value;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
-use crate::device_control::{DeviceManifest, DeviceStateDelta, DeviceStateSnapshot, EntityState};
+use crate::device_control::{
+    DeviceControlScope, DeviceManifest, DeviceStateDelta, DeviceStateSnapshot, EntityState,
+};
 
 pub(super) const MAX_FRAME_BYTES: usize = 65_536;
 const MAX_PAYLOAD_BYTES: usize = 61_440;
@@ -319,4 +321,36 @@ pub(super) async fn protocol_close(
         })))
         .await
         .map_err(|_| ())
+}
+
+/// Maps an internal control scope to its wire representation.
+pub(super) fn scope_name(scope: &DeviceControlScope) -> &'static str {
+    match scope {
+        DeviceControlScope::DirectoryRead => "device.directory.read",
+        DeviceControlScope::PresenceRead => "device.presence.read",
+        DeviceControlScope::EntityStateRead => "entity.state.read",
+        DeviceControlScope::MediaControl => "media.control",
+        DeviceControlScope::DisplayControl => "display.control",
+        DeviceControlScope::ActuatorControl => "actuator.control",
+    }
+}
+
+/// Sends a formatted error envelope over the control socket when a command fails.
+pub(super) async fn send_command_error(
+    socket: &mut WebSocket,
+    code: &'static str,
+) -> Result<(), ()> {
+    send_envelope(
+        socket,
+        "protocol.error",
+        ProtocolErrorPayload {
+            error: ProtocolError {
+                code,
+                message: "Device command was rejected.",
+                request_id: Uuid::new_v4().to_string(),
+                details: Default::default(),
+            },
+        },
+    )
+    .await
 }

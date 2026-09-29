@@ -24,6 +24,23 @@ RockServer is a Rust service that will turn natural-language radio requests into
 - Keep changes small and aligned with one roadmap stage.
 - Keep the crate on Rust edition 2024.
 
+## Modularity and code organization
+
+- Avoid monolithic files: keep source files focused and bounded, aiming for under 400 lines (hard ceiling ~500 lines).
+- When introducing or refactoring functionality, decompose into distinct architectural layers immediately rather than accumulating everything in one file:
+  - Pure domain models, validation, and domain error types (`domain.rs`).
+  - Abstract storage and provider traits (`traits.rs` or in `domain.rs`).
+  - Stateful routers, services, and business logic orchestration (`service.rs` / `router.rs`).
+  - Wire transport protocols, WebSocket framing, routing, and HTTP DTOs (`protocol.rs` / `routes.rs` / `builder.rs`).
+  - Storage implementations, SQL row mappers, and deterministic test fakes (`in_memory.rs` / `fake.rs` / `persistence/`).
+  - Thin facades: module entry points (`mod.rs` or `<name>.rs`) must be clean facades re-exporting public types without holding substantial logic.
+- Unit tests: isolate unit test suites into dedicated `tests.rs` submodules alongside the module under test instead of appending hundreds of lines of `#[cfg(test)]` to implementation files.
+- Integration tests: do not accumulate multi-thousand-line monolithic integration test files.
+  - Decompose integration test suites thematically into submodule files under `tests/<suite_name>/` (e.g. `tests/<suite_name>/<topic>.rs`).
+  - Declare them in the root test file `tests/<suite_name>.rs` using `#[path = "<suite_name>/<topic>.rs"] mod <topic>;`.
+  - Isolate shared test fixtures, assertion helpers, and mock providers in a `common.rs` submodule.
+  - When tests require isolated or serialized execution (such as database truncation in `tests/postgres_integration.rs`), preserve a single test target with submodules rather than creating separate concurrently executing binaries or collapsing into a monolith.
+
 ## Code comments
 
 - All new or modified public functions, methods, types, and modules must have meaningful Rustdoc comments (`///` or `//!`).

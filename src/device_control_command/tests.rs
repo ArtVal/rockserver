@@ -1,14 +1,25 @@
 //! Focused regression tests for this private domain facade.
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use async_trait::async_trait;
+use time::OffsetDateTime;
 use tokio::sync::mpsc;
+use uuid::Uuid;
 
 use super::*;
-use crate::device_control::{
-    DeviceCapabilities, DeviceManifest, DeviceStateSnapshot, Entity, EntityState, StoreError,
-    StreamSource, Surface,
+use crate::{
+    device_control::{
+        CommandAccepted, CommandBody, CommandId, CommandReservation, CommandResult, CommandStatus,
+        DeviceCapabilities, DeviceCapability, DeviceCommand, DeviceControlScope,
+        DeviceControlStore, DeviceId, DeviceManifest, DeviceRole, DeviceStateSnapshot, Entity,
+        EntityState, StoreError, StoreOutcome, StreamSource, Surface,
+    },
+    device_control_presence::{ConnectionRegistry, OutboundFrame},
+    search::RepositoryError,
 };
 
 type StoredCommand = (Uuid, DeviceId, CommandReservation, Option<CommandResult>);

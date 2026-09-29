@@ -1,5 +1,111 @@
 # Task log
 
+## 2026-09-29 — DOCS: agent instruction guidelines for modularity, file size limits, and test decomposition
+
+- Goal: update contributor and agent instructions to enforce early decomposition of modules and integration test suites, preventing large monolithic files and mixed responsibilities.
+- Scope:
+  - `AGENTS.md`: added `## Modularity and code organization` section defining file size ceilings (~400-500 lines), architectural layer separation (domain, traits, orchestration, wire protocol/DTO, persistence/fakes, thin facades), unit test isolation (`tests.rs`), and thematic integration test decomposition with shared `common.rs`.
+  - `docs/codex-project-context.md`: added rule 7 detailing modularity requirements and thematic integration test decomposition for Codex and other AI agents.
+  - `src/ARCHITECTURE.md`: added integration test submodules to submodule maps and updated reading order instructions to mandate modular test suites.
+  - Updated `docs/status.md` and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green.
+- Status: complete; agent instruction files explicitly mandate layered decomposition upfront.
+
+## 2026-09-29 — ARCH: thematic modular decomposition of integration test suites (tests/openapi_contract and tests/postgres_integration)
+
+- Goal: decompose the massive integration test files `tests/openapi_contract.rs` (1783 lines) and `tests/postgres_integration.rs` (2412 lines) into focused thematic submodule files to improve navigation, maintainability, and compilation speed, while preserving single integration test targets.
+- Scope:
+  - `tests/openapi_contract/`:
+    - `common.rs` (325 lines): fixture specifications, schema validation helpers, golden JSON loaders, and OpenAPI document constants.
+    - `surface.rs` (302 lines): public surface validation and search endpoint registration tests.
+    - `device_control.rs` (466 lines): device control v1 specification bounds, schema linking, and golden fixture validation.
+    - `device_catalog.rs` (425 lines): stream-free catalog bounds, play stream constraints, and native session gating.
+    - `voice_stream.rs` (143 lines): voice stream specification alignment with runtime and device flows.
+    - `personal_sync.rs` (158 lines): personal data sync specification constraints and session checks.
+    - `tests/openapi_contract.rs` (14 lines): minimal facade declaring thematic submodules via `#[path = ...]`.
+  - `tests/postgres_integration/`:
+    - `common.rs` (98 lines): shared test database inspection pools (`repository_pool`), import mock providers (`OnePageProvider`, `imported_station`), run assertions (`assert_run`), and result helpers (`station_ids`).
+    - `device_control.rs` (310 lines): device control state persistence and ownership isolation.
+    - `admin.rs` (323 lines): administrator identity, Argon2id credentials, atomic bootstrap, and durable session revocation.
+    - `account.rs` (477 lines): passkey registration, WebAuthn challenge handling, desktop pairing, and session rotation.
+    - `account_cleanup.rs` (210 lines): preview inspection, operator cascade deletion, and audit logging.
+    - `yandex_home.rs` (72 lines): OAuth state lifecycle and encrypted token persistence.
+    - `migrations.rs` (416 lines): database migrations, pgvector extension verification, semantic search, and live readiness probes.
+    - `shared_catalog.rs` (160 lines): transactional release activation, tombstones, and rollback safety.
+    - `personal_data.rs` (267 lines): last-writer-wins synchronization, cursor delta scoping, retention sweeps, and account purge.
+    - `tests/postgres_integration.rs` (31 lines): minimal facade preserving single test binary target for serial execution.
+  - Updated `docs/status.md` and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green (all 9 OpenAPI contract tests pass; all 12 PostgreSQL integration tests compiled cleanly and ignored appropriately; all 184 library tests pass).
+- Status: complete; all test semantics, assertions, and execution controls preserved.
+
+## 2026-09-29 — ARCH: domain models, repository implementations, and search service decomposition for search (Step 7)
+
+- Goal: decompose the 849-line monolithic `src/search/mod.rs` by extracting domain models, in-memory repository implementations, and search service orchestration into dedicated submodules, turning `src/search/mod.rs` into a clean facade.
+- Scope:
+  - `src/search/domain.rs` (211 lines): extracted `SearchQuery`, `SearchConstraints`, `Station`, `StationHealth`, `RankedStation`, `SearchOutcome`, `MIN_RELEVANCE_SCORE`, `StationRepository`, and `RepositoryError`.
+  - `src/search/in_memory.rs` (298 lines): extracted `InMemoryStationRepository`, `UnavailableStationRepository`, pinned catalog conversion, and deterministic unit test fixtures.
+  - `src/search/service.rs` (343 lines): extracted `SearchService`, concurrent query parsing/embedding, fallback intent preservation, confidence-gated language filtering, and progressive genre fallback (`broaden_tags`).
+  - `src/search/mod.rs` (37 lines): reduced to a clean public facade re-exporting all submodules without breaking changes.
+  - Updated `src/ARCHITECTURE.md`, `docs/status.md`, and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green (all 49 search unit tests and 184 library tests passed).
+- Status: complete; zero breaking changes to search domain contracts or public exports.
+
+## 2026-09-29 — ARCH: catalog resolution, target validation, and command router decomposition for device_control_command (Step 6)
+
+- Goal: decompose the 817-line monolithic `src/device_control_command.rs` by extracting catalog resolution, target validation, and command routing logic into dedicated submodules, reducing the root to a clean facade.
+- Scope:
+  - `src/device_control_command/catalog.rs` (91 lines): extracted station resolution, `StationCatalog` trait, `ResolvedStation`, and default `SearchService` integration.
+  - `src/device_control_command/target_validation.rs` (136 lines): extracted target manifest precondition validations (`validate_target`, `require_role_capability`, `display_supported`).
+  - `src/device_control_command/router.rs` (592 lines): extracted `CommandRouter`, in-flight state tracking, reservation, delivery over `ConnectionRegistry`, timeout handling, and terminal results.
+  - `src/device_control_command/tests.rs` (933 lines): adapted imports to reference submodules and external crates cleanly.
+  - `src/device_control_command.rs` (13 lines): reduced to a clean public facade re-exporting all submodules without breaking changes.
+  - Updated `src/ARCHITECTURE.md`, `docs/status.md`, and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green (all 6 unit tests and 184 library tests passed).
+- Status: complete; zero breaking changes to command routing semantics or public exports.
+
+## 2026-09-29 — ARCH: transport and test isolation for http/control (Step 5)
+
+- Goal: decompose the 1088-line monolithic `src/http/control.rs` by extracting unit/transport tests, wire error framing, and state admission decisions into existing submodules.
+- Scope: 
+  - `src/http/control/tests.rs`: extracted 601 lines of unit and transport tests.
+  - `src/http/control/protocol.rs`: added wire scope mapping (`scope_name`) and command rejection envelope formatting (`send_command_error`).
+  - `src/http/control/state.rs`: added controller full-state observation checks (`requires_full_state`) and full snapshot persistence outcome acceptance (`accepted_full_snapshot`).
+  - `src/http/control.rs`: reduced from 1088 to 442 lines, keeping focused WebSocket upgrade (`connect`) and connection lifecycle loop (`run`).
+  - Updated `src/ARCHITECTURE.md`, `docs/status.md`, and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green (14/14 control tests and all 184 library tests passed).
+- Status: complete; zero breaking changes to WebSocket and HTTP control protocol.
+
+## 2026-09-29 — ARCH: domain store and test isolation for personal_data and admin (Step 4)
+
+- Goal: decompose the massive domain files `src/personal_data.rs` (1281 lines) and `src/admin.rs` (885 lines) by separating domain models and traits from in-memory test stores and unit test blocks.
+- Scope: 
+  - `src/personal_data/`: extracted `domain.rs` (pure sync models, validation, limits, `PersonalDataStore` trait), `in_memory.rs` (`InMemoryPersonalDataStore`, revision generator, `delta_and_echo`), and `tests.rs` (unit tests). Replaced `src/personal_data.rs` with a 26-line facade.
+  - `src/admin/`: extracted `domain.rs` (`AdminPrincipal`, `AdminPasswordHash`, DTOs, `AdminStore` trait), `fake.rs` (`FakeAdminStore`, secret hash key, rotation), and `tests.rs` (unit tests). Replaced `src/admin.rs` with a 14-line facade.
+  - Updated `src/ARCHITECTURE.md`, `docs/status.md`, and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green (184 unit/doc tests and all integration tests passed).
+- Status: complete; zero breaking changes to public domain and store contracts.
+
+## 2026-09-29 — ARCH: modular layering refactoring for http/endpoints (Step 3)
+
+- Goal: decompose the 1083-line monolithic `src/http/endpoints.rs` by introducing a `RouterBuilder` pattern, extracting route composition, and moving unit tests out of the router definition.
+- Scope: created `src/http/endpoints/builder.rs` (fluent `RouterBuilder` with sensible offline defaults and explicit dependency injection), `src/http/endpoints/routes.rs` (Axum route registration and middleware layering), and `src/http/endpoints/tests.rs` (extracted unit tests). Simplified 15 telescoping `router_with_*` functions in `src/http/endpoints.rs` to concise builder calls, re-exported `RouterBuilder` in `rockserver::http`, and simplified `control.rs` test harness. Updated `src/ARCHITECTURE.md`, `docs/status.md`, and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green.
+- Status: complete; zero breaking changes to public router signatures.
+
+## 2026-09-29 — ARCH: modular layering refactoring for http/voice (Step 2)
+
+- Goal: decompose the 1353-line monolithic `src/http/voice.rs` into clean transport protocol, device voice orchestration, and handler layers.
+- Scope: created `src/http/voice/protocol.rs` (wire DTOs, JSON event envelopes, error codes, limits, framing helpers), `src/http/voice/device.rs` (device capability validation, intent resolution, command routing, execution polling), and restructured `src/http/voice.rs` (streaming WebSocket ingestion loop, session lifecycle, REST command handler, search completion). Updated `src/ARCHITECTURE.md`, `docs/status.md`, and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green (including all `voice_stream_api` and `voice_command_api` tests).
+- Status: complete; zero breaking changes to HTTP or WebSocket behavior.
+
+## 2026-09-29 — ARCH: modular layering refactoring for station_icons (Step 1)
+
+- Goal: decompose the 1310-line monolithic `src/station_icons.rs` into distinct single-responsibility architectural layers matching project architecture guidelines.
+- Scope: created `src/station_icons/domain.rs` (models, keys, errors, traits, WebP raster preparation algorithm), `src/station_icons/storage.rs` (atomic filesystem storage), `src/station_icons/fetcher.rs` (external HTTP client, SSRF checks, HTML link parsing), `src/station_icons/coordinator.rs` (PostgreSQL job coordination, SQL queries, item planning), and `src/station_icons/tests.rs` (isolated unit tests). Preserved `src/station_icons.rs` as a 27-line stable facade. Updated `src/ARCHITECTURE.md`, `docs/status.md`, and `docs/tasks.md`.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` all green (15/15 station_icons tests passed).
+- Status: complete; all public contracts and behavior preserved with zero API changes.
+
 ## 2026-09-28 — Opt-in PostgreSQL integration test rot repaired
 
 - Goal: make the opt-in PostgreSQL integration suite trustworthy again; five tests had been
