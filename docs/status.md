@@ -2,6 +2,16 @@
 
 Last updated: 2026-09-29
 
+## DEPLOY: modular refactoring and agent guidelines deployed to staging (2026-09-29)
+
+Release commit `137475f` (modular architectural decomposition across all domain, HTTP, search, and integration test suites, alongside updated agent instruction guidelines) successfully built and deployed to staging via `deploy/ops-001-d.ps1`:
+- Image built: `rockserver:sha-137475fb4fd8dfefcd59165614639d2e7145c351` (`sha256:0ecefe82f7eede4161e9bb3ad36b1dfdf27676ce85a6181df6757d6a6ed3410c`).
+- Caddy web image built: `rockserver-caddy:sha-137475fb4fd8dfefcd59165614639d2e7145c351`.
+- Remote deploy finished with `status=succeeded` (`log=/home/rockserver/logs/deploy-137475fb4fd8dfefcd59165614639d2e7145c351.log`).
+- Remote health gate verified: `readiness=passed` (`GET /health/ready` returned 200).
+
+Next step: Follow the new modularity rules for all upcoming features and fixes.
+
 ## DOCS: agent instruction guidelines for modularity, file size limits, and test decomposition (implemented locally, 2026-09-29)
 
 Formalized architectural and test organization guidelines across agent guidance files (`AGENTS.md`, `docs/codex-project-context.md`, `src/ARCHITECTURE.md`) to prevent monolithic files and ensure clean separation of concerns upfront:

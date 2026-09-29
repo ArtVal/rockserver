@@ -1,5 +1,15 @@
 # Task log
 
+## 2026-09-29 — DEPLOY: modular refactoring and agent guidelines deployed to staging
+
+- Goal: build, deploy, and verify release commit `137475f` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-137475fb4fd8dfefcd59165614639d2e7145c351` and `rockserver-caddy:sha-137475fb4fd8dfefcd59165614639d2e7145c351`.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified container start and remote readiness probe (`GET /health/ready`).
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `137475f`.
+
 ## 2026-09-29 — DOCS: agent instruction guidelines for modularity, file size limits, and test decomposition
 
 - Goal: update contributor and agent instructions to enforce early decomposition of modules and integration test suites, preventing large monolithic files and mixed responsibilities.
