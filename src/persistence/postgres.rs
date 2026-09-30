@@ -545,17 +545,16 @@ impl PostgresSearchParameters {
         let embedding_dimension = embedding
             .map(|value| i32::try_from(value.provenance().dimension))
             .transpose()
-            .map_err(|_| ParameterConversionError::EmbeddingDimensionTooLarge)?;
+            .map_err(|_| ParameterConversionError::EmbeddingDimension)?;
         Ok(Self {
             terms: query.terms.clone(),
             tags: query.tags.clone(),
             language: query.language.clone(),
             country_code: query.country_code.clone(),
             excluded_station_ids: constraints.excluded_station_ids.iter().cloned().collect(),
-            limit: i64::try_from(constraints.limit)
-                .map_err(|_| ParameterConversionError::LimitTooLarge)?,
+            limit: i64::try_from(constraints.limit).map_err(|_| ParameterConversionError::Limit)?,
             offset: i64::try_from(constraints.offset)
-                .map_err(|_| ParameterConversionError::OffsetTooLarge)?,
+                .map_err(|_| ParameterConversionError::Offset)?,
             embedding: embedding.map(vector_literal),
             embedding_model: embedding.map(|value| value.provenance().model.clone()),
             embedding_version: embedding.map(|value| value.provenance().version.clone()),
@@ -572,21 +571,17 @@ impl PostgresSearchParameters {
 
 #[derive(Debug)]
 enum ParameterConversionError {
-    LimitTooLarge,
-    OffsetTooLarge,
-    EmbeddingDimensionTooLarge,
+    Limit,
+    Offset,
+    EmbeddingDimension,
 }
 
 impl std::fmt::Display for ParameterConversionError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LimitTooLarge => {
-                formatter.write_str("search limit cannot fit in PostgreSQL bigint")
-            }
-            Self::OffsetTooLarge => {
-                formatter.write_str("search offset cannot fit in PostgreSQL bigint")
-            }
-            Self::EmbeddingDimensionTooLarge => {
+            Self::Limit => formatter.write_str("search limit cannot fit in PostgreSQL bigint"),
+            Self::Offset => formatter.write_str("search offset cannot fit in PostgreSQL bigint"),
+            Self::EmbeddingDimension => {
                 formatter.write_str("embedding dimension cannot fit in PostgreSQL integer")
             }
         }

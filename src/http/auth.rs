@@ -103,7 +103,7 @@ pub(super) async fn registration_options(
     let payload: RegistrationOptionsRequestDto =
         match parse_json_request(&headers, body, &request_id).await {
             Ok(payload) => payload,
-            Err(response) => return response,
+            Err(response) => return *response,
         };
     let account_display_name = payload.account_display_name.trim();
     if account_display_name.is_empty() || account_display_name.len() > 128 {
@@ -651,7 +651,7 @@ pub(super) async fn create_device_session(
     let payload: DeviceSessionRequestDto =
         match parse_json_request(&headers, body, &request_id).await {
             Ok(payload) => payload,
-            Err(response) => return response,
+            Err(response) => return *response,
         };
     if payload.device_secret.len() < 32 || payload.device_secret.len() > 512 {
         return unauthorized_response(&request_id);

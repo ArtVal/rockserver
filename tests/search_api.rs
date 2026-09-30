@@ -61,7 +61,10 @@ async fn pagination_offset_and_total_matches() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(second_page["stations"].as_array().unwrap().len(), 1);
     assert_eq!(second_page["total"], total);
-    assert_ne!(first_page["stations"][0]["id"], second_page["stations"][0]["id"]);
+    assert_ne!(
+        first_page["stations"][0]["id"],
+        second_page["stations"][0]["id"]
+    );
 
     let (_, end_page) = search(json!({"query": "rock", "limit": 10, "offset": total})).await;
     assert_eq!(end_page["stations"].as_array().unwrap().len(), 0);

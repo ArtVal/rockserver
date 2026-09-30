@@ -49,7 +49,7 @@ pub(super) async fn start_import(State(state): State<AppState>, headers: HeaderM
     }
     let session = match active_session(&state, &headers, &request_id).await {
         Ok(session) => session,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(importer) = state.icon_import.clone() else {
         return unavailable(&request_id);
@@ -82,7 +82,7 @@ pub(super) async fn latest_import(State(state): State<AppState>, headers: Header
     let started = Instant::now();
     let session = match active_session(&state, &headers, &request_id).await {
         Ok(session) => session,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(importer) = state.icon_import.as_ref() else {
         return unavailable(&request_id);
@@ -114,7 +114,7 @@ pub(super) async fn import_progress(
     let started = Instant::now();
     let session = match active_session(&state, &headers, &request_id).await {
         Ok(session) => session,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(importer) = state.icon_import.as_ref() else {
         return unavailable(&request_id);
@@ -155,7 +155,7 @@ pub(super) async fn replace_manual(
     let started = Instant::now();
     let session = match trusted_admin_session(&state, &headers, &request_id).await {
         Ok(session) => session,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     if invalid_station_id(&station_id) {
         return invalid_station(&request_id);
@@ -204,7 +204,7 @@ pub(super) async fn remove_manual(
     let started = Instant::now();
     let session = match trusted_admin_session(&state, &headers, &request_id).await {
         Ok(session) => session,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     if invalid_station_id(&station_id) {
         return invalid_station(&request_id);
@@ -220,7 +220,7 @@ pub(super) async fn remove_manual(
                 json!({"field":"confirmation"}),
             );
         }
-        Err(response) => return response,
+        Err(response) => return *response,
     }
     let Some(importer) = state.icon_import.as_ref() else {
         return unavailable(&request_id);
@@ -306,15 +306,15 @@ async fn trusted_admin_session(
     state: &AppState,
     headers: &HeaderMap,
     request_id: &str,
-) -> Result<crate::admin::AdminSession, Response> {
+) -> Result<crate::admin::AdminSession, Box<Response>> {
     if !is_trusted_admin_browser_request(headers, state.local_admin_origin.as_deref()) {
-        return Err(error_response(
+        return Err(Box::new(error_response(
             StatusCode::FORBIDDEN,
             "origin_required",
             "The request origin is not allowed.",
             request_id,
             json!({}),
-        ));
+        )));
     }
     active_session(state, headers, request_id).await
 }

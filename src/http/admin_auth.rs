@@ -69,7 +69,7 @@ pub(super) async fn login(
     }
     let request = match parse_json_request::<LoginRequest>(&headers, body, &request_id).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Ok(username) = AdminUsername::parse(request.username) else {
         return generic_login_failure(&state, &request_id, None, &headers, "invalid").await;
@@ -193,7 +193,7 @@ pub(super) async fn session(State(state): State<AppState>, headers: HeaderMap) -
             .await;
             response
         }
-        Err(response) => response,
+        Err(response) => *response,
     }
 }
 
@@ -202,17 +202,17 @@ pub(super) async fn active_session(
     state: &AppState,
     headers: &HeaderMap,
     request_id: &str,
-) -> Result<AdminSession, Response> {
+) -> Result<AdminSession, Box<Response>> {
     let Some(token) = bearer_token(headers) else {
-        return Err(unauthorized_response(request_id));
+        return Err(Box::new(unauthorized_response(request_id)));
     };
     let Some(store) = state.admin_store.as_ref() else {
-        return Err(unavailable(request_id));
+        return Err(Box::new(unavailable(request_id)));
     };
     match store.find_active_session(&secret_hash(token)).await {
         Ok(Some(session)) => Ok(session),
-        Ok(None) => Err(unauthorized_response(request_id)),
-        Err(_) => Err(unavailable(request_id)),
+        Ok(None) => Err(Box::new(unauthorized_response(request_id))),
+        Err(_) => Err(Box::new(unavailable(request_id))),
     }
 }
 

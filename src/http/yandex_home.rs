@@ -87,7 +87,7 @@ pub(super) async fn begin_authorization(
     let request_id = request_id(&headers);
     let user_id = match browser_mutation_owner(&state, &headers, &request_id).await {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(client) = state.yandex_home.as_ref() else {
         return yandex_unavailable(&request_id);
@@ -325,7 +325,7 @@ pub(super) async fn disconnect(State(state): State<AppState>, headers: HeaderMap
     let request_id = request_id(&headers);
     let user_id = match browser_mutation_owner(&state, &headers, &request_id).await {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(store) = state.account_store.as_ref() else {
         return auth_unavailable(&request_id);

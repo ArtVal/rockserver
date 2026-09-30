@@ -196,68 +196,68 @@ pub(super) async fn browser_mutation_owner(
     state: &AppState,
     headers: &HeaderMap,
     request_id: &str,
-) -> Result<Uuid, Response> {
+) -> Result<Uuid, Box<Response>> {
     if !is_trusted_browser_request(headers)
         || !trusted_proxy_header_matches(headers, state.trusted_proxy_token.as_deref())
     {
-        return Err(error_response(
+        return Err(Box::new(error_response(
             StatusCode::FORBIDDEN,
             "untrusted_request",
             "The request must originate from the trusted first-party proxy.",
             request_id,
             json!({}),
-        ));
+        )));
     }
     let Some(cookie) = cookie_value(headers, "rockserver_browser") else {
-        return Err(error_response(
+        return Err(Box::new(error_response(
             StatusCode::UNAUTHORIZED,
             "authentication_required",
             "A browser session is required.",
             request_id,
             json!({}),
-        ));
+        )));
     };
     let Some(csrf) = headers
         .get("x-csrf-token")
         .and_then(|value| value.to_str().ok())
         .filter(|value| !value.is_empty() && value.len() <= 256)
     else {
-        return Err(error_response(
+        return Err(Box::new(error_response(
             StatusCode::FORBIDDEN,
             "csrf_failed",
             "A valid CSRF token is required.",
             request_id,
             json!({}),
-        ));
+        )));
     };
     let Some(store) = state.account_store.as_ref() else {
-        return Err(error_response(
+        return Err(Box::new(error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "auth_unavailable",
             "Account service is unavailable.",
             request_id,
             json!({}),
-        ));
+        )));
     };
     match store
         .browser_session_user_with_csrf(&token_hash(cookie), &token_hash(csrf))
         .await
     {
         Ok(Some(user_id)) => Ok(user_id),
-        Ok(None) => Err(error_response(
+        Ok(None) => Err(Box::new(error_response(
             StatusCode::UNAUTHORIZED,
             "authentication_required",
             "A browser session is required.",
             request_id,
             json!({}),
-        )),
-        Err(_) => Err(error_response(
+        ))),
+        Err(_) => Err(Box::new(error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "auth_unavailable",
             "Account service is unavailable.",
             request_id,
             json!({}),
-        )),
+        ))),
     }
 }
 
@@ -271,7 +271,7 @@ pub(super) async fn rename_browser_device(
     let request_id = request_id(&headers);
     let user_id = match browser_mutation_owner(&state, &headers, &request_id).await {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(name) = validated_device_display_name(&payload.device_display_name) else {
         return error_response(
@@ -326,7 +326,7 @@ pub(super) async fn revoke_browser_device(
     let request_id = request_id(&headers);
     let user_id = match browser_mutation_owner(&state, &headers, &request_id).await {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(store) = state.account_store.as_ref() else {
         return error_response(
@@ -369,7 +369,7 @@ pub(super) async fn logout_browser_session(
     let request_id = request_id(&headers);
     let user_id = match browser_mutation_owner(&state, &headers, &request_id).await {
         Ok(user_id) => user_id,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some(cookie) = cookie_value(&headers, "rockserver_browser") else {
         return unauthorized_response(&request_id);

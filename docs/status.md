@@ -2476,3 +2476,8 @@ full resync. This intentionally excludes the DC-009 command router and DC-010 pu
 directory/subscription API. Verification: `cargo fmt --check`, strict Clippy, `cargo test` (130
 library tests and regular suites), OpenAPI fixture tests, and `git diff --check` passed.
 PostgreSQL integration tests were not run because no disposable `TEST_DATABASE_URL` was supplied.
+## TOOLCHAIN-001 — 2026-09-30 — Rust 1.98.0
+
+CI and the pinned Docker builder now target Rust 1.98.0. `cargo fmt --check`, strict Clippy, and
+`cargo test` pass with Rust 1.98.0. PostgreSQL and billable external-provider tests remain ignored
+under their existing environment gates.

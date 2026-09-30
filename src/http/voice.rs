@@ -414,7 +414,7 @@ async fn voice_command_impl(
     let request =
         match parse_json_request::<VoiceCommandRequestDto>(&headers, body, &request_id).await {
             Ok(request) => request,
-            Err(response) => return response,
+            Err(response) => return *response,
         };
     let validated = match ValidatedVoiceCommandRequest::try_from(request) {
         Ok(request) => request,

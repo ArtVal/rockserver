@@ -40,13 +40,13 @@ pub(super) async fn authenticate_and_throttle(
     endpoint: &'static str,
     limit: super::state::PublicLimit,
     request_id: &str,
-) -> Result<DeviceControlPrincipal, Response> {
+) -> Result<DeviceControlPrincipal, Box<Response>> {
     use super::transport::{error_response, retry_after, unauthorized_response};
     use axum::http::StatusCode;
     use serde_json::json;
 
     let Some(resolver) = state.control_session_resolver.as_ref() else {
-        return Err(retry_after(
+        return Err(Box::new(retry_after(
             error_response(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "control_auth_unavailable",
@@ -55,15 +55,15 @@ pub(super) async fn authenticate_and_throttle(
                 json!({}),
             ),
             1,
-        ));
+        )));
     };
     let principal = match authenticate_control_ingress(headers, resolver.as_ref()).await {
         Ok(principal) => principal,
         Err(DeviceControlAuthenticationError::InvalidCredential) => {
-            return Err(unauthorized_response(request_id));
+            return Err(Box::new(unauthorized_response(request_id)));
         }
         Err(DeviceControlAuthenticationError::Unavailable) => {
-            return Err(retry_after(
+            return Err(Box::new(retry_after(
                 error_response(
                     StatusCode::SERVICE_UNAVAILABLE,
                     "control_auth_unavailable",
@@ -72,13 +72,9 @@ pub(super) async fn authenticate_and_throttle(
                     json!({}),
                 ),
                 1,
-            ));
+            )));
         }
     };
-    if let Err(response) =
-        state.device_request_allowed(endpoint, principal.device_id, limit, request_id)
-    {
-        return Err(*response);
-    }
+    state.device_request_allowed(endpoint, principal.device_id, limit, request_id)?;
     Ok(principal)
 }

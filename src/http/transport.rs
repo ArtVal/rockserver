@@ -35,7 +35,7 @@ pub(super) async fn parse_json_request<T>(
     headers: &HeaderMap,
     body: Body,
     request_id: &str,
-) -> Result<T, Response>
+) -> Result<T, Box<Response>>
 where
     T: DeserializeOwned,
 {
@@ -57,45 +57,45 @@ pub(super) async fn parse_json_request_with_limit<T>(
     body: Body,
     request_id: &str,
     max_bytes: usize,
-) -> Result<T, Response>
+) -> Result<T, Box<Response>>
 where
     T: DeserializeOwned,
 {
     if !is_json_content_type(headers) {
-        return Err(error_response(
+        return Err(Box::new(error_response(
             StatusCode::BAD_REQUEST,
             "malformed_request",
             "Request body must contain valid JSON.",
             request_id,
             json!({"content_type": "application/json is required"}),
-        ));
+        )));
     }
     let body = to_bytes(body, max_bytes).await.map_err(|_| {
-        error_response(
+        Box::new(error_response(
             StatusCode::PAYLOAD_TOO_LARGE,
             "request_too_large",
             "Request body exceeds the allowed size.",
             request_id,
             json!({"max_bytes": max_bytes}),
-        )
+        ))
     })?;
     let value = serde_json::from_slice::<Value>(&body).map_err(|_error| {
-        error_response(
+        Box::new(error_response(
             StatusCode::BAD_REQUEST,
             "malformed_request",
             "Request body must contain valid JSON.",
             request_id,
             json!({"field":"body"}),
-        )
+        ))
     })?;
     serde_json::from_value(value).map_err(|_error| {
-        error_response(
+        Box::new(error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "validation_failed",
             "Request validation failed.",
             request_id,
             json!({"field":"request"}),
-        )
+        ))
     })
 }
 

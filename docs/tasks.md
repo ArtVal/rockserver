@@ -2957,3 +2957,12 @@
 - Checks: `cargo fmt --check`; `cargo clippy --all-targets --all-features -- -D warnings`;
   `cargo test`; `git diff --check`.
 - Status: **complete.**
+## TOOLCHAIN-001 — 2026-09-30 — update Rust toolchain
+
+- Goal: update the project Rust version from 1.95.0 to 1.98.0.
+- Scope: CI toolchain and Docker builder image only; no application behavior change.
+- Result: CI uses `1.98.0`; Docker builds from the pinned `rust:1.98.0-bookworm` amd64 image.
+- Checks: `cargo fmt --check`; `cargo clippy --all-targets --all-features -- -D warnings`;
+  `cargo test` — all passed with Rust 1.98.0. Twelve PostgreSQL and five external-provider tests
+  remain ignored because their existing environment/credential gates were not configured.
+- Status: **complete.**

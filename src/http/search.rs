@@ -161,7 +161,7 @@ async fn search_impl(
 ) -> Response {
     let request = match parse_json_request::<SearchRequestDto>(&headers, body, &request_id).await {
         Ok(request) => request,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let validated = match ValidatedSearchRequest::try_from(request) {
         Ok(request) => request,

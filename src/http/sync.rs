@@ -166,7 +166,7 @@ pub(super) async fn sync_request(
             .await
         {
             Ok(principal) => principal,
-            Err(response) => return response,
+            Err(response) => return *response,
         };
     let Some(store) = state.personal_store.clone() else {
         return error_response(
@@ -181,7 +181,7 @@ pub(super) async fn sync_request(
         match parse_json_request_with_limit(&headers, body, &request_id, MAX_SYNC_BODY_BYTES).await
         {
             Ok(payload) => payload,
-            Err(response) => return response,
+            Err(response) => return *response,
         };
     let request = match domain_request(payload) {
         Ok(request) => request,

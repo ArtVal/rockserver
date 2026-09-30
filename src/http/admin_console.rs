@@ -179,7 +179,7 @@ pub(super) async fn stations(
     let started = Instant::now();
     let session = match active_session(&state, &headers, &request_id).await {
         Ok(session) => session,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let (limit, offset) = match page(
         &PageQuery {
@@ -257,7 +257,7 @@ pub(super) async fn devices(
     let started = Instant::now();
     let session = match active_session(&state, &headers, &request_id).await {
         Ok(session) => session,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let (limit, offset) = match page(&query, &request_id, 25) {
         Ok(page) => page,
@@ -319,7 +319,7 @@ pub(super) async fn audit(
     let started = Instant::now();
     let session = match active_session(&state, &headers, &request_id).await {
         Ok(session) => session,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let (limit, offset) = match page(
         &PageQuery {

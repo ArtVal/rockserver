@@ -126,7 +126,7 @@ pub(super) async fn browse(
     )
     .await
     {
-        return response;
+        return *response;
     }
     let Query(query) = match query {
         Ok(query) => query,
@@ -208,7 +208,7 @@ pub(super) async fn search(
     )
     .await
     {
-        return response;
+        return *response;
     }
     let Query(query) = match query {
         Ok(query) => query,
