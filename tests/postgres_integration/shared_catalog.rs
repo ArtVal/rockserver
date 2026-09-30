@@ -88,6 +88,7 @@ async fn shared_catalog_tombstones_are_active_idempotent_and_rollback_safe() {
             &normalize_query("legacy retired marker".to_owned(), "en-US".to_owned()),
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )

@@ -879,6 +879,7 @@ fn stations(count: usize) -> Vec<RankedStation> {
             },
             score: 0.9,
             reason: "fixture".to_owned(),
+            total_matches: None,
         })
         .collect()
 }

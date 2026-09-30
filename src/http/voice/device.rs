@@ -292,6 +292,7 @@ async fn device_user_intent(
             let query = normalize_query(transcript, start.locale.clone());
             let constraints = SearchConstraints {
                 limit: 2,
+                offset: 0,
                 excluded_station_ids: start.exclude_station_ids.clone(),
             };
             let stations = match tokio::time::timeout(

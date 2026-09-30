@@ -74,6 +74,7 @@ async fn postgres_migrations_seed_search_and_readiness() {
             &rock_query,
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -90,6 +91,7 @@ async fn postgres_migrations_seed_search_and_readiness() {
             &rock_query,
             &SearchConstraints {
                 limit: 1,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -106,6 +108,7 @@ async fn postgres_migrations_seed_search_and_readiness() {
             &metal_query,
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::from(["somafm-metal-detector".to_owned()]),
             },
         )
@@ -167,6 +170,7 @@ async fn postgres_migrations_seed_search_and_readiness() {
             &semantic_query,
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -182,6 +186,7 @@ async fn postgres_migrations_seed_search_and_readiness() {
             },
             &SearchConstraints {
                 limit: 1,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -198,6 +203,7 @@ async fn postgres_migrations_seed_search_and_readiness() {
             &semantic_query,
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::from([
                     "rock-antenne".to_owned(),
                     "radio-record-rock".to_owned(),
@@ -218,6 +224,7 @@ async fn postgres_migrations_seed_search_and_readiness() {
             &rock_query,
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -388,6 +395,7 @@ WHERE s.source = $1 AND s.source_station_id = $2
             &imported_query,
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )

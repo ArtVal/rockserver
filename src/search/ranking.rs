@@ -29,8 +29,16 @@ pub(super) fn rank_stations(
             .total_cmp(&left.score)
             .then_with(|| left.station.id.cmp(&right.station.id))
     });
-    results.truncate(constraints.limit);
+    let total = results.len();
     results
+        .into_iter()
+        .skip(constraints.offset)
+        .take(constraints.limit)
+        .map(|mut r| {
+            r.total_matches = Some(total);
+            r
+        })
+        .collect()
 }
 
 /// Combines normalized metadata and cosine-derived semantic scores.
@@ -96,6 +104,7 @@ fn rank_station(station: &Station, query: &SearchQuery) -> Option<RankedStation>
         station: station.clone(),
         score,
         reason: format!("Matched catalog metadata: {}.", reason_terms.join(", ")),
+        total_matches: None,
     })
 }
 

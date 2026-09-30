@@ -23,6 +23,7 @@ async fn equal_scores_are_ordered_by_station_id() {
     let query = normalize_query("rock".to_owned(), "en-US".to_owned());
     let constraints = SearchConstraints {
         limit: 10,
+        offset: 0,
         excluded_station_ids: BTreeSet::new(),
     };
 
@@ -54,6 +55,7 @@ async fn exclusions_are_applied_before_ranking() {
     let query = normalize_query("jazz".to_owned(), "en-US".to_owned());
     let constraints = SearchConstraints {
         limit: 10,
+        offset: 0,
         excluded_station_ids: BTreeSet::from(["station-jazz-001".to_owned()]),
     };
 
@@ -76,6 +78,7 @@ async fn unavailable_catalog_is_explicitly_unready_and_never_serves_a_fixture() 
     ));
     let constraints = SearchConstraints {
         limit: 10,
+        offset: 0,
         excluded_station_ids: BTreeSet::new(),
     };
 
@@ -137,6 +140,7 @@ async fn query_parser_receives_only_request_input_and_returns_structured_intent(
             input.clone(),
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -177,6 +181,7 @@ async fn parser_and_embedding_failures_preserve_metadata_fallback() {
             },
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -229,6 +234,7 @@ async fn invalid_hard_filter_from_parser_uses_deterministic_fallback() {
             },
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -290,6 +296,7 @@ async fn heavy_metal_query_finds_rock_stations_via_genre_hierarchy() {
     };
     let constraints = SearchConstraints {
         limit: 10,
+        offset: 0,
         excluded_station_ids: BTreeSet::new(),
     };
 
@@ -326,6 +333,7 @@ async fn english_heavy_query_prefers_english_stations() {
     };
     let constraints = SearchConstraints {
         limit: 10,
+        offset: 0,
         excluded_station_ids: BTreeSet::new(),
     };
 
@@ -360,6 +368,7 @@ async fn genre_fallback_drops_filter_when_no_hierarchy_match() {
     };
     let constraints = SearchConstraints {
         limit: 10,
+        offset: 0,
         excluded_station_ids: BTreeSet::new(),
     };
 
@@ -385,6 +394,7 @@ async fn deterministic_fake_embedding_crosses_only_the_repository_boundary() {
             &normalize_query("anything".to_owned(), "en-US".to_owned()),
             &SearchConstraints {
                 limit: 1,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )
@@ -431,6 +441,7 @@ async fn confident_semantic_language_filter_is_applied_before_search() {
             },
             &SearchConstraints {
                 limit: 10,
+                offset: 0,
                 excluded_station_ids: BTreeSet::new(),
             },
         )

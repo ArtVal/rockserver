@@ -252,6 +252,7 @@ pub(super) async fn search(
 
     let constraints = SearchConstraints {
         limit: usize::from(limit),
+        offset: 0,
         excluded_station_ids: Default::default(),
     };
     let outcome = match tokio::time::timeout(

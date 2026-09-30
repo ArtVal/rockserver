@@ -297,6 +297,8 @@ pub(super) struct SearchResponseDto {
     pub(super) request_id: String,
     pub(super) normalized_query: NormalizedQueryDto,
     pub(super) stations: Vec<StationResultDto>,
+    pub(super) total: usize,
+    pub(super) has_more: bool,
 }
 
 /// Transport representation of normalized query constraints.

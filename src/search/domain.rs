@@ -65,6 +65,8 @@ impl SearchQuery {
 pub struct SearchConstraints {
     /// Maximum number of ranked stations to return.
     pub limit: usize,
+    /// Number of ranked stations to skip.
+    pub offset: usize,
     /// Station identifiers that must not appear in the result.
     pub excluded_station_ids: BTreeSet<String>,
 }
@@ -116,6 +118,8 @@ pub struct RankedStation {
     pub score: f64,
     /// Short explanation of the metadata that matched the request.
     pub reason: String,
+    /// Total matching station count before pagination, when available.
+    pub total_matches: Option<usize>,
 }
 
 /// Catalog access boundary used by the search domain.
@@ -208,4 +212,6 @@ pub struct SearchOutcome {
     pub query: SearchQuery,
     /// Ranked stations returned by the repository.
     pub stations: Vec<RankedStation>,
+    /// Total number of matching stations in the repository.
+    pub total: usize,
 }

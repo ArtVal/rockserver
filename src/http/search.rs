@@ -37,6 +37,8 @@ pub(super) struct SearchRequestDto {
     #[serde(default)]
     pub(super) limit: Option<u8>,
     #[serde(default)]
+    pub(super) offset: Option<usize>,
+    #[serde(default)]
     pub(super) exclude_station_ids: Vec<String>,
 }
 
@@ -45,6 +47,7 @@ pub(super) struct ValidatedSearchRequest {
     pub(super) query: String,
     pub(super) locale: String,
     pub(super) limit: usize,
+    pub(super) offset: usize,
     pub(super) exclude_station_ids: BTreeSet<String>,
 }
 
@@ -103,11 +106,17 @@ impl TryFrom<SearchRequestDto> for ValidatedSearchRequest {
             );
         }
 
+        let offset = value.offset.unwrap_or(0);
+        if offset > 10_000 {
+            details.insert("offset".to_owned(), json!("must be at most 10000"));
+        }
+
         if details.is_empty() {
             Ok(Self {
                 query,
                 locale,
                 limit: usize::from(limit),
+                offset,
                 exclude_station_ids: ids,
             })
         } else {
@@ -178,6 +187,7 @@ async fn search_impl(
 
     let constraints = SearchConstraints {
         limit: validated.limit,
+        offset: validated.offset,
         excluded_station_ids: validated.exclude_station_ids,
     };
     let outcome = match tokio::time::timeout(
@@ -215,6 +225,8 @@ async fn search_impl(
     };
     tracing::info!(%request_id, endpoint = "search", status = 200, stations = outcome.stations.len(), "public request completed");
 
+    let total = outcome.total;
+    let has_more = validated.offset + outcome.stations.len() < total;
     with_request_id(
         Json(SearchResponseDto {
             request_id: request_id.clone(),
@@ -224,6 +236,8 @@ async fn search_impl(
                 .iter()
                 .map(StationResultDto::from)
                 .collect(),
+            total,
+            has_more,
         })
         .into_response(),
         &request_id,

@@ -127,6 +127,7 @@ impl TryFrom<VoiceStreamStartDto> for ValidatedVoiceStreamStart {
             query: "stream".to_owned(),
             locale,
             limit,
+            offset: None,
             exclude_station_ids,
         });
         match validated {
@@ -255,6 +256,7 @@ impl TryFrom<VoiceCommandRequestDto> for ValidatedVoiceCommandRequest {
             query: transcript,
             locale: value.locale,
             limit: value.limit,
+            offset: None,
             exclude_station_ids: value.exclude_station_ids,
         }) {
             Ok(validated) => Ok(Self {

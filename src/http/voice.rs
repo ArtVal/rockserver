@@ -439,6 +439,7 @@ async fn voice_command_impl(
     }
     let constraints = SearchConstraints {
         limit: validated.limit,
+        offset: 0,
         excluded_station_ids: validated.exclude_station_ids,
     };
     let outcome = match tokio::time::timeout(
@@ -511,6 +512,7 @@ async fn finish_stream_search(
     );
     let constraints = SearchConstraints {
         limit: start.limit,
+        offset: 0,
         excluded_station_ids: start.exclude_station_ids.clone(),
     };
     let outcome = match tokio::time::timeout(

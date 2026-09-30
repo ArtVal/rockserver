@@ -131,6 +131,7 @@ impl StationRepository for FixedStreamRepository {
                 station: station.clone(),
                 score: 1.0,
                 reason: "fixture match".to_owned(),
+                total_matches: None,
             })
             .collect())
     }

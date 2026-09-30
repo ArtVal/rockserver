@@ -98,7 +98,7 @@ prefiltered AS MATERIALIZED (
     CROSS JOIN search_input AS input
     WHERE s.retired_at IS NULL
     ORDER BY prefilter_score DESC, s.id ASC
-    LIMIT GREATEST($6 * 20, 200)
+    LIMIT GREATEST(($6 + $17) * 20, 200)
 ),
 candidate_ids AS (
     SELECT id FROM prefiltered
@@ -226,11 +226,12 @@ SELECT
     CASE
         WHEN semantic_score IS NULL THEN metadata_score
         ELSE $11::float8 * metadata_score + $12::float8 * semantic_score
-    END AS score
+    END AS score,
+    COUNT(*) OVER() AS total_matches
 FROM scored
 WHERE metadata_score > 0 OR semantic_score > 0
 ORDER BY score DESC, id ASC
-LIMIT $6
+LIMIT $6 OFFSET $17
 "#;
 
 /// PostgreSQL-backed station catalog with startup migrations and seeded development data.
@@ -305,6 +306,7 @@ impl StationRepository for PostgresStationRepository {
             .bind(&parameters.raw_query)
             .bind(parameters.prefer_station_name)
             .bind(&parameters.station_name_hint_queries)
+            .bind(parameters.offset)
             .fetch_all(&self.pool)
             .await
             .map_err(|error| RepositoryError::new("search", error))?;
@@ -433,12 +435,14 @@ struct StationRow {
     metadata_score: f64,
     semantic_score: Option<f64>,
     score: f64,
+    total_matches: Option<i64>,
 }
 
 impl TryFrom<StationRow> for RankedStation {
     type Error = RowConversionError;
 
     fn try_from(row: StationRow) -> Result<Self, Self::Error> {
+        let total_matches = row.total_matches.and_then(|t| usize::try_from(t).ok());
         let bitrate_kbps = row
             .bitrate_kbps
             .map(u32::try_from)
@@ -472,6 +476,7 @@ impl TryFrom<StationRow> for RankedStation {
         Ok(Self {
             reason,
             score: row.score,
+            total_matches,
             station: Station {
                 id: row.id,
                 name: row.name,
@@ -516,6 +521,7 @@ struct PostgresSearchParameters {
     country_code: Option<String>,
     excluded_station_ids: Vec<String>,
     limit: i64,
+    offset: i64,
     embedding: Option<String>,
     embedding_model: Option<String>,
     embedding_version: Option<String>,
@@ -548,6 +554,8 @@ impl PostgresSearchParameters {
             excluded_station_ids: constraints.excluded_station_ids.iter().cloned().collect(),
             limit: i64::try_from(constraints.limit)
                 .map_err(|_| ParameterConversionError::LimitTooLarge)?,
+            offset: i64::try_from(constraints.offset)
+                .map_err(|_| ParameterConversionError::OffsetTooLarge)?,
             embedding: embedding.map(vector_literal),
             embedding_model: embedding.map(|value| value.provenance().model.clone()),
             embedding_version: embedding.map(|value| value.provenance().version.clone()),
@@ -565,6 +573,7 @@ impl PostgresSearchParameters {
 #[derive(Debug)]
 enum ParameterConversionError {
     LimitTooLarge,
+    OffsetTooLarge,
     EmbeddingDimensionTooLarge,
 }
 
@@ -573,6 +582,9 @@ impl std::fmt::Display for ParameterConversionError {
         match self {
             Self::LimitTooLarge => {
                 formatter.write_str("search limit cannot fit in PostgreSQL bigint")
+            }
+            Self::OffsetTooLarge => {
+                formatter.write_str("search offset cannot fit in PostgreSQL bigint")
             }
             Self::EmbeddingDimensionTooLarge => {
                 formatter.write_str("embedding dimension cannot fit in PostgreSQL integer")
@@ -609,6 +621,7 @@ mod tests {
             metadata_score: 0.5,
             semantic_score: None,
             score: 0.5,
+            total_matches: None,
         })
         .unwrap();
 
@@ -626,6 +639,7 @@ mod tests {
         let query = normalize_query("british classic rock".to_owned(), "en-GB".to_owned());
         let constraints = SearchConstraints {
             limit: 7,
+            offset: 0,
             excluded_station_ids: BTreeSet::from([
                 "station-rock-002".to_owned(),
                 "station-rock-001".to_owned(),

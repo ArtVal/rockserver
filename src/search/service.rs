@@ -308,7 +308,11 @@ impl SearchService {
                 );
             }
         }
-        Ok(SearchOutcome { query, stations })
+        let total = stations
+            .first()
+            .and_then(|s| s.total_matches)
+            .unwrap_or(stations.len());
+        Ok(SearchOutcome { query, stations, total })
     }
 
     /// Checks whether the configured catalog backend is currently available.
