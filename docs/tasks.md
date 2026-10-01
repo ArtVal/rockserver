@@ -1,5 +1,15 @@
 # Task log
 
+## 2026-10-01 — DEPLOY: Cyber-Tuner web cabinet and radio player deployed to staging
+
+- Goal: build, deploy, and verify release commit `2624b6b` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-2624b6b963e81a9e80d5097f0adef0ce288f3bc8` (`sha256:685c0d6d5e49780be4eb881802d287fa92d9847cf7cd5fd6a0f429f7a8bad5fc`) and `rockserver-caddy:sha-2624b6b963e81a9e80d5097f0adef0ce288f3bc8`.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified remote execution: worker PID 922409 completed with `status=succeeded`, remote readiness probe passed (`readiness=passed`).
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `2624b6b`.
+
 ## 2026-10-01 — WEB-UI-004: frontend test expansion and full-stack verification (Stage 4)
 
 - Goal: expand the frontend UX and security regression test suite to cover HTML5 audio streaming, real-time SSE ICY metadata synchronization, Cyber-Tuner controls, animated VU-meter keyframes, and responsive CSS rules.

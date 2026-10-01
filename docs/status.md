@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-01
 
+## DEPLOY: Cyber-Tuner web cabinet and radio player deployed to staging (2026-10-01)
+
+Release commit `2624b6b` (modernized Cyber-Tuner / Studio Deck web cabinet, in-browser radio stream playback, real-time SSE ICY metadata synchronization, and modular architectural decomposition) was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
+- Images built:
+  - `rockserver:sha-2624b6b963e81a9e80d5097f0adef0ce288f3bc8` (`sha256:685c0d6d5e49780be4eb881802d287fa92d9847cf7cd5fd6a0f429f7a8bad5fc`)
+  - `rockserver-caddy:sha-2624b6b963e81a9e80d5097f0adef0ce288f3bc8`
+- Remote deploy status: `status=succeeded` (`log=/home/rockserver/logs/deploy-2624b6b963e81a9e80d5097f0adef0ce288f3bc8.log`).
+- Remote readiness probe verified: `readiness=passed`.
+- Next step: verify live playback and ICY title updates through web browsers on staging.
+
 ## WEB-UI-004: Frontend test expansion and full-stack verification (Stage 4) (2026-10-01)
 
 Expanded the automated UX and security test suite and verified the complete Cyber-Tuner / Studio Deck cabinet and web player:
