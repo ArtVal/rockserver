@@ -1,5 +1,16 @@
 # Task log
 
+## 2026-10-01 — DEPLOY: Station preset cache, error preservation, and right column overflow fix deployed to staging
+
+- Goal: build, deploy, and verify release commit `cc011cb` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-cc011cb8e13a6c4c36f2e211ab9ac722d1b5e2cb` (`sha256:4d8341743623308d9d20788722f79c310052a53eb466b30d4eccac19cd865730`) and `rockserver-caddy:sha-cc011cb8e13a6c4c36f2e211ab9ac722d1b5e2cb`.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified remote execution: worker PID 969361 completed with `status=succeeded`, remote readiness probe passed (`readiness=passed`).
+  - Verified live deployment: `https://rockplatform.win/` loaded new assets bundle (`index-BcFvSP3r.js` and `index-wqU82xOn.css`).
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `cc011cb`.
+
 ## 2026-10-01 — WEB-UI-007: station search in-memory cache, preserve stations on error, and right column horizontal overflow fix
 
 - Goal: fix station tiles disappearing on filter preset switching, eliminate 429 rate limit errors when browsing presets via in-memory caching, and resolve right column clipping/overflow at viewport edges.
@@ -19,7 +30,7 @@
     - `pnpm test`: all 15/15 UX and security regression tests passed.
     - `pnpm build`: TypeScript typecheck (`tsc --noEmit`), lint, and Vite production bundle clean.
     - `cargo fmt --check`, strict Clippy, and `cargo test`: all green.
-- Status: **ready for commit, push, and staging deployment.**
+- Status: **deployed** as commit `cc011cb`.
 
 ## 2026-10-01 — DEPLOY: Device card formatting, official logo, search debounce/rate-limit fix, and station icons deployed to staging
 

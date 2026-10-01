@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-01
 
+## DEPLOY: Station preset cache, error preservation, and right column overflow fix deployed to staging (2026-10-01)
+
+Release commit `cc011cb` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
+- Images built:
+  - `rockserver:sha-cc011cb8e13a6c4c36f2e211ab9ac722d1b5e2cb` (`sha256:4d8341743623308d9d20788722f79c310052a53eb466b30d4eccac19cd865730`)
+  - `rockserver-caddy:sha-cc011cb8e13a6c4c36f2e211ab9ac722d1b5e2cb`
+- Remote deploy status: `status=succeeded` (`log=/home/rockserver/logs/deploy-cc011cb8e13a6c4c36f2e211ab9ac722d1b5e2cb.log`).
+- Remote readiness probe verified: `readiness=passed`.
+- Current working state: preset filter tags (`#rock`, `#classical`, `#jazz`, `#ambient`, etc.) load instantly from memory without rate limits or disappearing cards; right column hardware cards and limit pills fit cleanly within viewport borders without horizontal overflow.
+- Next step: monitor staging telemetry and await user feedback.
+
 ## WEB-UI-007: station search in-memory cache, preserve stations on error, and right column horizontal overflow fix (2026-10-01)
 
 Resolved station tiles disappearing on filter preset switching, rate limit 429 errors, and right column edge clipping:
@@ -10,7 +21,7 @@ Resolved station tiles disappearing on filter preset switching, rate limit 429 e
 - Compact date formatting: updated `formatDate` in `HardwareHud.tsx` to `day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"` (e.g., "24 сент., 15:20"), removing ~60px of unnecessary characters.
 - Right column & viewport overflow: added `box-sizing: border-box` and `overflow-x: hidden`, adjusted grid columns to `220px minmax(0, 1fr) 310px` with `gap: 1.25rem; padding: 1.25rem;`, and added `min-width: 0;` on `.cabinet-right-col` so cards and limit pills never push past the browser window.
 - Verification: `pnpm test` (15/15 passing), `pnpm build` clean, `cargo fmt --check`, strict Clippy, and `cargo test` all green.
-- Next step: commit, push, and deploy to staging VPS.
+- Next step: monitor user interaction and telemetry in staging.
 
 ## DEPLOY: Device card formatting, official logo, search debounce/rate-limit fix, and station icons deployed to staging (2026-10-01)
 
