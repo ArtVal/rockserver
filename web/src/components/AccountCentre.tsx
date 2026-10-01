@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api, type BrowserAccount, type BrowserDevice, type StationItem } from "../api";
 import { Header } from "./Header";
 import { SidebarNav, type NavTab } from "./SidebarNav";
@@ -57,10 +57,19 @@ export function AccountCentre({
     setSearchQuery(query);
   };
 
+  const stationCache = useRef<Map<string, StationItem[]>>(new Map());
+
   const handleSearchSubmit = (query?: string) => {
     const q = (query !== undefined ? query : searchQuery).trim();
-    setActiveSearch(q);
-    if (q) setSelectedTag("");
+    if (q) {
+      stationCache.current.delete(q);
+      setActiveSearch(q);
+      setSelectedTag("");
+    } else {
+      const activeQuery = selectedTag || "rock";
+      stationCache.current.delete(activeQuery);
+      setActiveSearch("");
+    }
     if (activeTab !== "stations" && activeTab !== "favorites" && activeTab !== "history") {
       setActiveTab("stations");
     }
@@ -142,19 +151,39 @@ export function AccountCentre({
   // Note: Backend limits max items per request to 20.
   useEffect(() => {
     let active = true;
+    const query = activeSearch.trim() || selectedTag || "rock";
+
+    // Fast-path: return cached stations immediately if available in session
+    const cached = stationCache.current.get(query);
+    if (cached && cached.length > 0) {
+      setStations(cached);
+      setStationsLoading(false);
+      setSearchError("");
+      return;
+    }
+
     const loadStations = async () => {
       setStationsLoading(true);
       setSearchError("");
       try {
-        const query = activeSearch.trim() || selectedTag || "rock";
         const res = await api.searchStations(query, 20);
-        if (active) setStations(res.stations ?? []);
+        if (active) {
+          const list = res.stations ?? [];
+          setStations(list);
+          if (list.length > 0) {
+            stationCache.current.set(query, list);
+          }
+        }
       } catch (err: unknown) {
         if (active) {
-          setStations([]);
-          const apiErr = err as { code?: string };
-          if (apiErr?.code === "rate_limited") {
-            setSearchError("Слишком частые запросы (лимит 10 в минуту). Пожалуйста, подождите немного и нажмите «Найти».");
+          // Do NOT clear existing stations so cards do not disappear!
+          const apiErr = err as { code?: string; message?: string; status?: number };
+          const isRateLimited =
+            apiErr?.code === "rate_limited" ||
+            apiErr?.status === 429 ||
+            (typeof apiErr?.message === "string" && apiErr.message.includes("rate limit"));
+          if (isRateLimited) {
+            setSearchError("Слишком частые запросы (лимит 10 в минуту). Подождите немного перед следующим переключением.");
           } else {
             setSearchError("Не удалось загрузить станции. Попробуйте повторить запрос.");
           }

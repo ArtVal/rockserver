@@ -1,5 +1,26 @@
 # Task log
 
+## 2026-10-01 — WEB-UI-007: station search in-memory cache, preserve stations on error, and right column horizontal overflow fix
+
+- Goal: fix station tiles disappearing on filter preset switching, eliminate 429 rate limit errors when browsing presets via in-memory caching, and resolve right column clipping/overflow at viewport edges.
+- Scope:
+  - `web/src/components/AccountCentre.tsx`:
+    - Introduced session in-memory cache (`stationCache = useRef<Map<string, StationItem[]>>(new Map())`) for search queries and preset tag filters (`#all`, `#rock`, `#classical`, `#jazz`, etc.). Switching back and forth between presets now loads instantly from memory with zero network latency and zero risk of rate limit exhaustion.
+    - Preserved existing stations when a search error or rate limit occurs (removed destructive `setStations([])` call), preventing tiles from vanishing.
+    - Improved rate limit detection (checking `code === "rate_limited"`, `status === 429`, or error message) with a polite Russian notification banner.
+    - Resetting/deleting cache entry upon explicit search submit or tag retry to guarantee fresh results when requested.
+  - `web/src/components/HardwareHud.tsx`:
+    - Compacted `formatDate` to `day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"` (e.g., "24 сент., 15:20"), eliminating ~60px of redundant monospace text width in the metadata row.
+  - `web/src/style.css`:
+    - Added global `*, *::before, *::after { box-sizing: border-box; }` and `html, body { overflow-x: hidden; }` to eliminate content-box overflow and unwanted horizontal scrolling.
+    - Refined `.cabinet-main-grid` columns to `220px minmax(0, 1fr) 310px` with `gap: 1.25rem; padding: 1.25rem;` and added `min-width: 0;` on `.cabinet-right-col`.
+    - Compacted `.hardware-deck` padding to `1rem`, added `min-width: 0; flex: 1;` with ellipsis on the title, and constrained `.device-card-item` / `.device-meta-entry` so the right column never clips against the browser edge.
+  - Verification:
+    - `pnpm test`: all 15/15 UX and security regression tests passed.
+    - `pnpm build`: TypeScript typecheck (`tsc --noEmit`), lint, and Vite production bundle clean.
+    - `cargo fmt --check`, strict Clippy, and `cargo test`: all green.
+- Status: **ready for commit, push, and staging deployment.**
+
 ## 2026-10-01 — DEPLOY: Device card formatting, official logo, search debounce/rate-limit fix, and station icons deployed to staging
 
 - Goal: build, deploy, and verify release commit `ce32f9d` on the staging VPS via `deploy/ops-001-d.ps1`.

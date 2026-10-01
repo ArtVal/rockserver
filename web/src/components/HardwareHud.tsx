@@ -12,8 +12,18 @@ export const deviceName = (device: Pick<BrowserDevice, "device_type" | "device_d
     : `${product} — ${device.device_display_name}`;
 };
 
-export const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+export const formatDate = (value: string) => {
+  try {
+    return new Intl.DateTimeFormat("ru-RU", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+};
 
 /**
  * Hardware HUD component rendering connected RockCast and RockMobile client devices,

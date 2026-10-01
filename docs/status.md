@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-01
 
+## WEB-UI-007: station search in-memory cache, preserve stations on error, and right column horizontal overflow fix (2026-10-01)
+
+Resolved station tiles disappearing on filter preset switching, rate limit 429 errors, and right column edge clipping:
+- Station search caching: implemented an in-memory session cache (`stationCache`) in `AccountCentre.tsx` for genre presets and query searches. Switching between `#all`, `#rock`, `#classical`, `#jazz`, `#ambient`, etc., now resolves instantly from memory without repeated network round-trips or burst rate limit exhaustion.
+- Non-destructive error handling: stopped clearing stations on search errors (`setStations([])` removed from catch blocks). When a network glitch or rate limit occurs, existing stations stay rendered on screen while a friendly alert banner informs the user.
+- Compact date formatting: updated `formatDate` in `HardwareHud.tsx` to `day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"` (e.g., "24 сент., 15:20"), removing ~60px of unnecessary characters.
+- Right column & viewport overflow: added `box-sizing: border-box` and `overflow-x: hidden`, adjusted grid columns to `220px minmax(0, 1fr) 310px` with `gap: 1.25rem; padding: 1.25rem;`, and added `min-width: 0;` on `.cabinet-right-col` so cards and limit pills never push past the browser window.
+- Verification: `pnpm test` (15/15 passing), `pnpm build` clean, `cargo fmt --check`, strict Clippy, and `cargo test` all green.
+- Next step: commit, push, and deploy to staging VPS.
+
 ## DEPLOY: Device card formatting, official logo, search debounce/rate-limit fix, and station icons deployed to staging (2026-10-01)
 
 Release commit `ce32f9d` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:

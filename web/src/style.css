@@ -23,7 +23,9 @@
   color: var(--text-primary);
 }
 
-body { margin: 0; min-height: 100vh; background: var(--bg-space); }
+*, *::before, *::after { box-sizing: border-box; }
+html { overflow-x: hidden; }
+body { margin: 0; min-height: 100vh; background: var(--bg-space); overflow-x: hidden; }
 .font-mono-code { font-family: var(--font-mono); }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -196,11 +198,11 @@ dd { margin: .15rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
 .cabinet-layout { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 96px; }
 .cabinet-main-grid {
   flex: 1; max-width: 1680px; width: 100%; margin: 0 auto; box-sizing: border-box;
-  padding: 1.5rem; display: grid; grid-template-columns: 240px minmax(0, 1fr) 330px;
-  gap: 1.5rem; align-items: start;
+  padding: 1.25rem; display: grid; grid-template-columns: 220px minmax(0, 1fr) 310px;
+  gap: 1.25rem; align-items: start;
 }
 .cabinet-center-col { min-width: 0; display: grid; gap: 1.25rem; }
-.cabinet-right-col { display: grid; gap: 1.25rem; }
+.cabinet-right-col { min-width: 0; display: grid; gap: 1.25rem; }
 .cabinet-footer { text-align: center; padding: 1.5rem; font-size: .78rem; color: var(--text-dim); }
 
 /* Left Sidebar Navigation */
@@ -446,12 +448,12 @@ dd { margin: .15rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
    Right Column: Hardware HUD & Smart Home Cards
    ========================================================================== */
 
-.hardware-deck, .guide-deck, .yandex-home-deck { padding: 1.15rem; }
-.hardware-title-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.hardware-title-wrap h2 { margin: 0; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hardware-deck, .guide-deck, .yandex-home-deck { padding: 1rem; }
+.hardware-title-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.hardware-title-wrap h2 { margin: 0; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .device-limit-pill {
   font-size: .65rem; color: var(--accent-cyan); font-weight: 700;
-  padding: 3px 8px; border-radius: 4px; background: rgba(67, 184, 237, 0.1);
+  padding: 2px 7px; border-radius: 4px; background: rgba(67, 184, 237, 0.1);
   border: 1px solid rgba(67, 184, 237, 0.2); white-space: nowrap; flex-shrink: 0;
 }
 .limit-alert { color: #fca5a5; font-size: .8rem; margin: .5rem 0; }
@@ -462,30 +464,31 @@ dd { margin: .15rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
 }
 .device-card-item {
   background: #090e15; border: 1px solid var(--border-deck); border-radius: 10px;
-  padding: .9rem; display: flex; flex-direction: column; gap: .75rem;
+  padding: .75rem; display: flex; flex-direction: column; gap: .65rem;
   transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
+  min-width: 0;
 }
 .device-card-item:hover {
   border-color: rgba(255, 255, 255, 0.15);
   background: #0c131d;
 }
 .device-card-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0;
 }
 .device-identity {
-  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;
+  display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;
 }
 .device-type-icon {
-  font-size: 1.1rem; line-height: 1; flex-shrink: 0;
+  font-size: 1rem; line-height: 1; flex-shrink: 0;
 }
 .device-name-text {
-  font-size: .88rem; font-weight: 700; color: #fff;
+  font-size: .84rem; font-weight: 700; color: #fff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .device-status-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-family: var(--font-mono); font-size: .65rem; font-weight: 700;
-  padding: 2px 7px; border-radius: 99px; white-space: nowrap; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: .62rem; font-weight: 700;
+  padding: 2px 6px; border-radius: 99px; white-space: nowrap; flex-shrink: 0;
 }
 .device-status-badge.active {
   background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald);
@@ -496,26 +499,26 @@ dd { margin: .15rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .status-circle {
-  width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+  width: 5px; height: 5px; border-radius: 50%; display: inline-block;
 }
 .status-circle.active { background: var(--accent-emerald); box-shadow: 0 0 6px var(--accent-emerald); }
 .status-circle.inactive { background: var(--text-dim); }
 .device-meta-list {
   background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 6px; padding: .5rem .7rem; display: grid; gap: 5px;
+  border-radius: 6px; padding: .45rem .65rem; display: grid; gap: 4px; min-width: 0;
 }
 .device-meta-entry {
-  display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: .73rem;
+  display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: .72rem; min-width: 0;
 }
-.meta-label { color: var(--text-dim); font-size: .7rem; }
-.meta-val { color: var(--text-muted); font-family: var(--font-mono); font-size: .72rem; }
+.meta-label { color: var(--text-dim); font-size: .68rem; flex-shrink: 0; }
+.meta-val { color: var(--text-muted); font-family: var(--font-mono); font-size: .7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .device-actions {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
 }
 .device-action-btn {
-  width: 100% !important; margin: 0 !important; padding: .45rem .6rem !important;
-  font-size: .75rem !important; font-weight: 600; border-radius: 6px !important;
-  text-align: center; justify-content: center;
+  width: 100% !important; margin: 0 !important; padding: .4rem .5rem !important;
+  font-size: .74rem !important; font-weight: 600; border-radius: 6px !important;
+  text-align: center; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .device-action-btn.secondary {
   background: #151e29 !important; border: 1px solid #233346 !important; color: var(--text-primary) !important;
