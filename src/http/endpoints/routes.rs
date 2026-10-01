@@ -6,7 +6,7 @@ use tracing::Level;
 
 use super::{
     account, admin_auth, admin_console, auth, catalog, control, device_catalog, directory, health,
-    pairing, search, state::AppState, station_icons, sync, voice, yandex_home,
+    pairing, relay, search, state::AppState, station_icons, sync, voice, yandex_home,
 };
 
 /// Assembles the complete Axum router tree with public and administrative routes,
@@ -70,6 +70,10 @@ pub(super) fn build_router(state: AppState) -> Router {
         .route(
             "/api/v1/stations/{station_id}/icon",
             axum::routing::get(station_icons::public_icon),
+        )
+        .route(
+            "/api/v1/stations/{station_id}/stream",
+            axum::routing::get(relay::stream),
         )
         .route("/api/v1/search", axum::routing::post(search::public_search))
         .route(

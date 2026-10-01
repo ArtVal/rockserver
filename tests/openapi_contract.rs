@@ -8,6 +8,8 @@ mod device_catalog;
 mod device_control;
 #[path = "openapi_contract/personal_sync.rs"]
 mod personal_sync;
+#[path = "openapi_contract/relay.rs"]
+mod relay;
 #[path = "openapi_contract/surface.rs"]
 mod surface;
 #[path = "openapi_contract/voice_stream.rs"]

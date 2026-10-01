@@ -88,6 +88,7 @@ pub(crate) struct AppState {
     /// Optional read-only Yandex Smart Home client configured for browser accounts.
     pub(crate) yandex_home: Option<Arc<YandexHomeClient>>,
     pub(crate) control_timing: ControlTiming,
+    pub(crate) relay: super::relay::RelayState,
 }
 
 #[derive(Default)]

@@ -1,5 +1,19 @@
 # Task log
 
+## 2026-10-01 — RR-001: authenticated radio stream relay
+
+- Goal: serve catalog audio and ICY metadata only to current browser or native-device sessions.
+- Scope: station-ID relay route, active primary lookup, pinned DNS/IP and redirect validation, bounded streaming and title snapshot, OpenAPI contract and local fake-upstream checks. Client apps, metadata API/SSE, and shared upstream remain later stages.
+- Checks: `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` passed. Local fake-upstream checks cover auth/query rejection, fragmented ICY, audio-only delivery, malformed/missing metadata, blocked destinations/redirects, and disconnect cleanup. PostgreSQL and live-provider tests remain ignored without configured environments.
+- Status: RR-001 complete locally; RR-002 metadata API/events is next.
+
+## 2026-10-01 — DOCS: authenticated radio stream relay plan
+
+- Goal: record an actionable roadmap for authenticated radio relay and first-wave now-playing metadata.
+- Scope: added `docs/authenticated-radio-stream-relay-plan.md` with architecture, endpoint/auth/security/reconnect contracts, in-stream ICY for native clients, Web snapshot/SSE, and RR-001—RR-006 acceptance criteria; updated status and task log.
+- Checks: Markdown content, `git diff --check`, `cargo fmt --check`, strict all-target/all-feature Clippy, and `cargo test` passed; no runtime behavior changed.
+- Status: plan documented; RR-001 is next.
+
 ## 2026-09-29 — DEPLOY: modular refactoring and agent guidelines deployed to staging
 
 - Goal: build, deploy, and verify release commit `137475f` on the staging VPS via `deploy/ops-001-d.ps1`.

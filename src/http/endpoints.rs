@@ -38,6 +38,8 @@ mod directory;
 mod health;
 #[path = "pairing.rs"]
 mod pairing;
+#[path = "relay.rs"]
+mod relay;
 #[path = "endpoints/routes.rs"]
 mod routes;
 #[path = "search.rs"]

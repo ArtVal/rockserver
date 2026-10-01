@@ -61,6 +61,7 @@ pub struct RouterBuilder {
     icon_import: Option<Arc<IconImportCoordinator>>,
     yandex_home: Option<Arc<YandexHomeClient>>,
     control_timing: ControlTiming,
+    relay: super::relay::RelayState,
 }
 
 impl Default for RouterBuilder {
@@ -85,6 +86,7 @@ impl Default for RouterBuilder {
             icon_import: None,
             yandex_home: None,
             control_timing: ControlTiming::default(),
+            relay: super::relay::RelayState::default(),
         }
     }
 }
@@ -288,6 +290,7 @@ impl RouterBuilder {
             icon_import: self.icon_import,
             yandex_home: self.yandex_home,
             control_timing: self.control_timing,
+            relay: self.relay,
         }
     }
 

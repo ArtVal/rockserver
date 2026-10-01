@@ -367,7 +367,7 @@ impl StationRepository for PostgresStationRepository {
     }
 
     async fn get_public(&self, id: &str) -> Result<Option<Station>, RepositoryError> {
-        sqlx::query_as::<_, PublicStationRow>("SELECT s.id, s.name, ss.stream_url, s.homepage_url, COALESCE(i.status = 'ready', false) AS favicon_ready, s.tags, s.language, s.country_code, ss.codec, ss.bitrate_kbps, ss.health FROM stations s JOIN station_streams ss ON ss.station_id = s.id AND ss.is_primary LEFT JOIN station_icons i ON i.station_id = s.id WHERE s.id = $1")
+        sqlx::query_as::<_, PublicStationRow>("SELECT s.id, s.name, ss.stream_url, s.homepage_url, COALESCE(i.status = 'ready', false) AS favicon_ready, s.tags, s.language, s.country_code, ss.codec, ss.bitrate_kbps, ss.health FROM stations s JOIN station_streams ss ON ss.station_id = s.id AND ss.is_primary AND ss.retired_at IS NULL LEFT JOIN station_icons i ON i.station_id = s.id WHERE s.id = $1 AND s.retired_at IS NULL")
             .bind(id).fetch_optional(&self.pool).await.map_err(|error| RepositoryError::new("public catalog get", error))?
             .map(Station::try_from).transpose().map_err(|error| RepositoryError::new("public catalog row conversion", error))
     }

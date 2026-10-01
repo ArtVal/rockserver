@@ -1,6 +1,14 @@
 # Project status
 
-Last updated: 2026-09-29
+Last updated: 2026-10-01
+
+## RR-001: authenticated radio relay (2026-10-01)
+
+Implemented `GET /api/v1/stations/{station_id}/stream` for current browser-cookie or native-device sessions. The relay selects the active primary catalog stream, validates and pins each upstream/redirect destination, forwards bounded audio with optional ICY blocks, and keeps a bounded in-process `rawTitle` snapshot. Each listener has its own upstream. Open streams end after one hour or on upstream failure/disconnect; clients reconnect with backoff and reauthenticate. Metadata API/SSE and shared upstream remain RR-002/RR-006. Verification: `cargo fmt --check`, strict all-target/all-feature Clippy, and `cargo test` passed. Disposable-PostgreSQL and live-provider tests remain ignored without their configured environments. Next step: RR-002 metadata API/events.
+
+## PLAN: authenticated radio stream relay (2026-10-01)
+
+`docs/authenticated-radio-stream-relay-plan.md` records the planned RR-001—RR-006 server and client stages, preserving in-stream ICY for native clients and using snapshot/SSE for Web UI. No relay endpoint or now-playing API was implemented by this documentation task. Verification: cargo fmt --check, strict all-target/all-feature Clippy, cargo test, and git diff --check passed. Next step: RR-001 authenticated relay with ICY metadata and baseline outbound safety.
 
 ## DEPLOY: modular refactoring and agent guidelines deployed to staging (2026-09-29)
 

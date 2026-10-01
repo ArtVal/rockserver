@@ -213,6 +213,45 @@ paths:
             image/webp: { schema: { type: string, format: binary } }
         "304": { description: The supplied ETag matches the stored artifact. }
         "404": { description: No ready stored icon exists for the station. }
+  /api/v1/stations/{station_id}/stream:
+    get:
+      operationId: relayStationStream
+      summary: Relay the current primary stream of an active catalog station
+      security: [{ RockserverBrowserCookie: [] }, { RockserverBearer: [] }]
+      description: >-
+        Requires an active account browser cookie through the trusted first-party proxy or an
+        active native device Bearer session. Admin, legacy Bearer and device_secret are invalid.
+        The station URL is selected from the server catalog; query parameters are rejected.
+        Upstream audio is passed through without transcoding. The server requests ICY upstream.
+        Clients sending Icy-MetaData: 1 receive interleaved ICY blocks and icy-metaint when
+        upstream supplies a valid interval; other clients receive audio only. On upstream EOF,
+        timeout, or error the current response ends. Clients should reconnect with bounded
+        exponential backoff and jitter, stop on 401/403, and respect 429 Retry-After. A reconnect
+        rechecks the session. Open streams have a one-hour maximum lifetime.
+      parameters:
+        - name: station_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+        - name: Icy-MetaData
+          in: header
+          schema: { type: string, enum: ["1"] }
+      responses:
+        "200":
+          description: Chunked audio, optionally interleaved with ICY metadata.
+          headers:
+            icy-metaint: { schema: { type: integer, minimum: 1 } }
+            Cache-Control: { schema: { type: string, example: no-store } }
+          content:
+            audio/mpeg: { schema: { type: string, format: binary } }
+            audio/aac: { schema: { type: string, format: binary } }
+            application/octet-stream: { schema: { type: string, format: binary } }
+        "400": { description: Invalid station identifier or any query parameters. }
+        "401": { description: Browser or native device session is absent, expired, revoked, or invalid. }
+        "404": { description: Station or active primary stream is unavailable. }
+        "429": { description: Relay capacity is exhausted; Retry-After is provided. }
+        "502": { description: Catalog upstream URL is unsafe, invalid, or unavailable. }
+        "503": { description: Catalog storage is unavailable. }
   /api/v1/admin/devices:
     get:
       operationId: listAdminDevices
