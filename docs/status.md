@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-01
 
+## WEB-UI-006: connected device cards formatting, official logo, search debounce/rate-limit fix, and station icons styling (2026-10-01)
+
+Resolved layout formatting, branding, search rate limits, and station icon styling:
+- Connected devices card formatting: restructured each device card in `HardwareHud.tsx` into clean vertical cards with an icon+title+badge header, a recessed tabular key-value metadata plate for connection/activity timestamps, and a balanced 50/50 2-column action button grid. Simplified header limit pill to `{count} / {limit}`.
+- Official RockCast logo: replaced the placeholder `RC` letter badge with the official RockCast client icon (`icon_logo.png`, guitar pick with sound waves and play mark) in the header and updated the favicon.
+- Search rate-limit (HTTP 429) prevention: decoupled input typing state from search query execution; added a 700ms debounce to prevent firing network requests on every keystroke; provided prominent «Найти» buttons and Enter key submission; added Russian-language error banner with retry button when rate limits occur.
+- Station tile icons and card styling: wired favicon fallback to `/api/v1/stations/{id}/icon` in `StationsView.tsx` and `PlayerDeck.tsx`; added proper styling for `.station-icon-wrap` (48x48px rounded container with WebP image and letter fallback), card header, tag pills, play button, and table view thumbnails in `style.css`.
+- Verification: `pnpm test` (all 15/15 tests passing), `pnpm build` (`tsc --noEmit` and Vite build clean), `cargo fmt --check`, strict Clippy, and `cargo test` all green.
+- Next step: await user review and instruction before commit and deploy.
+
 ## DEPLOY: Cyber-Tuner navigation, search deck, and limit 422 fix deployed to staging (2026-10-01)
 
 Release commit `bf11261` (search limit 422 fix, tuner search deck, cabinet navigation wiring, and history tracking) was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:

@@ -17,6 +17,9 @@ export function StationsView({
   loading = false,
   searchQuery = "",
   onSearchChange,
+  onSearchSubmit,
+  onSearchClear,
+  searchError = "",
   selectedTag = "",
   activeTab = "stations",
 }: {
@@ -30,6 +33,9 @@ export function StationsView({
   loading?: boolean;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  onSearchSubmit?: () => void;
+  onSearchClear?: () => void;
+  searchError?: string;
   selectedTag?: string;
   activeTab?: string;
 }) {
@@ -87,7 +93,13 @@ export function StationsView({
       </div>
 
       {/* Prominent Tuner Search Bar */}
-      <div class="deck-panel tuner-search-deck">
+      <form
+        class="deck-panel tuner-search-deck"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSearchSubmit?.();
+        }}
+      >
         <div class="tuner-search-wrap">
           <span class="search-icon" aria-hidden="true">⌕</span>
           <input
@@ -102,14 +114,36 @@ export function StationsView({
             <button
               type="button"
               class="search-clear-btn"
-              onClick={() => onSearchChange?.("")}
+              onClick={() => onSearchClear?.()}
               aria-label="Очистить поиск"
             >
               ✕
             </button>
           )}
+          <button
+            type="submit"
+            class="search-submit-btn"
+            aria-label="Искать станции"
+          >
+            Найти
+          </button>
         </div>
-      </div>
+      </form>
+
+      {/* Search error state (e.g. rate limit 429) */}
+      {searchError && (
+        <div class="deck-panel search-error-banner" role="alert">
+          <div class="search-error-content">
+            <span class="search-error-icon">⚠</span>
+            <span class="search-error-text">{searchError}</span>
+          </div>
+          {onSearchSubmit && (
+            <button type="button" class="search-retry-btn" onClick={() => onSearchSubmit()}>
+              Повторить
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Loading state */}
       {loading && (
@@ -119,7 +153,7 @@ export function StationsView({
       )}
 
       {/* Empty state */}
-      {!loading && stations.length === 0 && (
+      {!loading && !searchError && stations.length === 0 && (
         <div class="deck-panel empty-deck">
           <p class="empty-title">
             {activeTab === "favorites"
@@ -149,6 +183,7 @@ export function StationsView({
               : station.codec
               ? station.codec.toUpperCase()
               : "192 KBPS";
+            const iconUrl = station.favicon_url || `/api/v1/stations/${encodeURIComponent(station.id)}/icon`;
 
             return (
               <div
@@ -158,22 +193,20 @@ export function StationsView({
               >
                 <div class="station-card-top">
                   <div class="station-icon-wrap">
-                    {station.favicon_url ? (
-                      <img
-                        src={station.favicon_url}
-                        alt=""
-                        class="station-icon"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = "grid";
-                        }}
-                      />
-                    ) : null}
+                    <img
+                      src={iconUrl}
+                      alt=""
+                      class="station-icon"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = "grid";
+                      }}
+                    />
                     <div
                       class="station-icon-fallback"
-                      style={{ display: station.favicon_url ? "none" : "grid" }}
+                      style={{ display: "none" }}
                     >
                       {station.name.slice(0, 2).toUpperCase()}
                     </div>
@@ -289,7 +322,25 @@ export function StationsView({
                     </td>
                     <td>
                       <div class="table-station-info">
-                        <strong>{station.name}</strong>
+                        <div class="table-station-cell">
+                          <div class="station-icon-wrap table-thumb">
+                            <img
+                              src={station.favicon_url || `/api/v1/stations/${encodeURIComponent(station.id)}/icon`}
+                              alt=""
+                              class="station-icon"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = "grid";
+                              }}
+                            />
+                            <div class="station-icon-fallback" style={{ display: "none" }}>
+                              {station.name.slice(0, 2).toUpperCase()}
+                            </div>
+                          </div>
+                          <strong>{station.name}</strong>
+                        </div>
                         {isCurrent && currentTrackTitle && (
                           <small class="table-track truncate">{currentTrackTitle}</small>
                         )}

@@ -1,5 +1,34 @@
 # Task log
 
+## 2026-10-01 — WEB-UI-006: connected device cards formatting, official logo, search debounce/rate-limit fix, and station icons styling
+
+- Goal: fix connected device cards text wrapping, replace placeholder badge with official RockCast logo, prevent search rate limiting (HTTP 429) via debounce and explicit submit button, and fix station icons styling on grid cards and table rows.
+- Scope:
+  - `web/src/components/HardwareHud.tsx`:
+    - Redesigned device card layout into structured vertical blocks:
+      - Header row: device type icon (`📱` / `💻`), full product-prefixed title (`deviceName(device)`), and compact online/offline status badge (`● В сети` / `○ Офлайн`).
+      - Metadata plate: recessed key-value data list with neat left/right alignment for "Подключено" and "Активность" timestamps.
+      - Action controls: balanced 2-column grid for "Переименовать" and "Отключить" buttons.
+    - Simplified header limit pill to `{count} / {limit}` with full descriptive title tooltip to prevent header text wrapping.
+  - Official Logo:
+    - Added `web/public/icon_logo.png` and `web/public/favicon.ico` sourced from official RockCast client assets (`C:\repos\rockcast\assets\icon_logo.png`).
+    - Updated `web/index.html` to reference `/icon_logo.png`.
+    - Updated `web/src/components/Header.tsx` to render `<img src="/icon_logo.png" ... class="brand-logo" />`.
+  - Search Debounce & Rate Limit Fix:
+    - In `web/src/components/AccountCentre.tsx`: decoupled local input state (`searchQuery`) from executed search (`activeSearch`); added 700ms debounce when typing; added `handleSearchSubmit` on Enter and button click; added `searchError` state specifically catching HTTP 429 `rate_limited` with friendly Russian explanation and retry button.
+    - In `web/src/components/Header.tsx`: wrapped search input in form with explicit `<button type="submit" class="header-search-btn">Найти</button>`.
+    - In `web/src/components/StationsView.tsx`: wrapped search deck in form with prominent amber `<button type="submit" class="search-submit-btn">Найти</button>`; added alert banner with retry button for rate limit or search errors.
+  - Station Icons & Card Styling:
+    - In `web/src/components/StationsView.tsx`: used `station.favicon_url || /api/v1/stations/{id}/icon` with lazy loading and letter fallback.
+    - In `web/src/components/PlayerDeck.tsx`: added fallback to `/api/v1/stations/{id}/icon` for player cover art.
+    - In `web/src/style.css`: added styles for `.brand-logo-wrap`, `.brand-logo`, `.header-search-btn`, `.search-submit-btn`, `.search-error-banner`, `.search-retry-btn`, `.station-card`, `.station-card-top`, `.station-icon-wrap` (48x48 rounded container), `.station-card .station-icon` (object-fit cover), `.station-icon-fallback`, `.station-card-body`, `.station-card-footer`, `.card-play-btn`, and table view thumb icons.
+  - Verification:
+    - Visually verified connected device cards layout and responsiveness.
+    - `pnpm test`: all 15/15 UX and security regression tests passed.
+    - `pnpm build`: TypeScript typecheck (`tsc --noEmit`), lint, and Vite production bundle clean.
+    - `cargo fmt --check`, strict Clippy, and `cargo test`: all green.
+- Status: **implemented locally; pending user review before commit and deployment.**
+
 ## 2026-10-01 — DEPLOY: Cyber-Tuner navigation, search deck, and limit 422 fix deployed to staging
 
 - Goal: build, deploy, and verify release commit `bf11261` on the staging VPS via `deploy/ops-001-d.ps1`.

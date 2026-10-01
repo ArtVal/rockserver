@@ -22,7 +22,15 @@ export function Header({
       <div class="header-inner">
         {/* Brand identity */}
         <div class="header-brand">
-          <div class="brand-badge">RC</div>
+          <div class="brand-logo-wrap">
+            <img
+              src="/icon_logo.png"
+              alt="RockCast"
+              class="brand-logo"
+              width="36"
+              height="36"
+            />
+          </div>
           <div class="brand-text">
             <div class="brand-title">
               <span>ROCK</span>
@@ -37,22 +45,27 @@ export function Header({
         </div>
 
         {/* Global search tuner input */}
-        <div class="header-search">
+        <form
+          class="header-search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearchSubmit?.();
+          }}
+        >
           <div class="search-input-wrap">
             <span class="search-icon" aria-hidden="true">⌕</span>
             <input
               type="search"
               value={searchQuery}
               onInput={(e) => onSearchChange(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && onSearchSubmit) onSearchSubmit();
-              }}
               placeholder="Поиск станции, жанра или потока..."
               aria-label="Поиск станции, жанра или потока"
             />
-            <span class="search-hint" aria-hidden="true">/</span>
+            <button type="submit" class="header-search-btn" aria-label="Искать">
+              Найти
+            </button>
           </div>
-        </div>
+        </form>
 
         {/* Account identity and logout */}
         <div class="header-account">

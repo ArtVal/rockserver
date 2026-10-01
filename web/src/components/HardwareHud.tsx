@@ -40,10 +40,10 @@ export function HardwareHud({
         <div class="panel-header-row">
           <div class="hardware-title-wrap">
             <span class="hud-status-dot glow-cyan" />
-            <h2>Подключённые устройства ({account.devices.length})</h2>
+            <h2>Подключённые устройства</h2>
           </div>
-          <span class="device-limit-pill font-mono-code">
-            {account.devices.length} / {account.device_limit} ЛИМИТ
+          <span class="device-limit-pill font-mono-code" title={`Подключено ${account.devices.length} из ${account.device_limit} устройств`}>
+            {account.devices.length} / {account.device_limit}
           </span>
         </div>
 
@@ -65,6 +65,7 @@ export function HardwareHud({
                 justConnected.device_type === device.device_type;
               const busy = deviceBusy === device.device_id;
               const isActive = device.session_status === "active";
+              const isMobile = device.device_type.toLowerCase().includes("mobile");
 
               return (
                 <li key={device.device_id} class="device-card-item">
@@ -73,21 +74,38 @@ export function HardwareHud({
                       ✓ Только что подключено
                     </p>
                   )}
-                  <div class="device-meta-wrap">
-                    <strong class="device-name-text">{deviceName(device)}</strong>
-                    <p class="device-session-info">
+                  <div class="device-card-header">
+                    <div class="device-identity">
+                      <span class="device-type-icon" aria-hidden="true">
+                        {isMobile ? "📱" : "💻"}
+                      </span>
+                      <strong class="device-name-text" title={deviceName(device)}>
+                        {deviceName(device)}
+                      </strong>
+                    </div>
+                    <span class={`device-status-badge ${isActive ? "active" : "inactive"}`}>
                       <span class={`status-circle ${isActive ? "active" : "inactive"}`} />
-                      <span>{isActive ? "● Сессия активна" : "○ Нет активной сессии"}</span>
-                      <span> · Подключено {formatDate(device.connected_at)}</span>
-                      {device.last_seen_at && (
-                        <span> · Активность {formatDate(device.last_seen_at)}</span>
-                      )}
-                    </p>
+                      {isActive ? "В сети" : "Офлайн"}
+                    </span>
                   </div>
+
+                  <div class="device-meta-list">
+                    <div class="device-meta-entry">
+                      <span class="meta-label">Подключено</span>
+                      <span class="meta-val">{formatDate(device.connected_at)}</span>
+                    </div>
+                    {device.last_seen_at && (
+                      <div class="device-meta-entry">
+                        <span class="meta-label">Активность</span>
+                        <span class="meta-val">{formatDate(device.last_seen_at)}</span>
+                      </div>
+                    )}
+                  </div>
+
                   <div class="device-actions">
                     <button
                       type="button"
-                      class="secondary"
+                      class="device-action-btn secondary"
                       onClick={() => onRename(device)}
                       disabled={busy}
                     >
@@ -95,7 +113,7 @@ export function HardwareHud({
                     </button>
                     <button
                       type="button"
-                      class="danger"
+                      class="device-action-btn danger"
                       onClick={() => onRevoke(device)}
                       disabled={busy}
                     >

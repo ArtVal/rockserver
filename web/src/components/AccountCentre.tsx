@@ -49,17 +49,56 @@ export function AccountCentre({
 }: AccountCentreProps) {
   const [activeTab, setActiveTab] = useState<NavTab>("stations");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
+  const [searchError, setSearchError] = useState("");
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    if (query.trim()) {
-      setSelectedTag("");
-    }
+  };
+
+  const handleSearchSubmit = (query?: string) => {
+    const q = (query !== undefined ? query : searchQuery).trim();
+    setActiveSearch(q);
+    if (q) setSelectedTag("");
     if (activeTab !== "stations" && activeTab !== "favorites" && activeTab !== "history") {
       setActiveTab("stations");
     }
   };
+
+  const handleSearchClear = () => {
+    setSearchQuery("");
+    setActiveSearch("");
+    setSearchError("");
+  };
+
+  const handleTagSelect = (tag: string) => {
+    setSelectedTag(tag);
+    setSearchQuery("");
+    setActiveSearch("");
+    setSearchError("");
+    if (activeTab !== "stations") {
+      setActiveTab("stations");
+    }
+  };
+
+  // Debounced typing: triggers auto-search only after user stops typing for 700ms.
+  // Prevents sending network requests on every keystroke (avoids 429 rate limits).
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      if (activeSearch) setActiveSearch("");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setActiveSearch(searchQuery.trim());
+      setSelectedTag("");
+      if (activeTab !== "stations" && activeTab !== "favorites" && activeTab !== "history") {
+        setActiveTab("stations");
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const [stations, setStations] = useState<StationItem[]>([]);
   const [stationsLoading, setStationsLoading] = useState(false);
   const [favorites, setFavorites] = useState<string[]>(() => {
@@ -99,18 +138,27 @@ export function AccountCentre({
     }
   };
 
-  // Search or fetch stations when query or selected tag changes.
+  // Search or fetch stations when active search or selected tag changes.
   // Note: Backend limits max items per request to 20.
   useEffect(() => {
     let active = true;
     const loadStations = async () => {
       setStationsLoading(true);
+      setSearchError("");
       try {
-        const query = searchQuery.trim() || selectedTag || "rock";
+        const query = activeSearch.trim() || selectedTag || "rock";
         const res = await api.searchStations(query, 20);
         if (active) setStations(res.stations ?? []);
-      } catch {
-        if (active) setStations([]);
+      } catch (err: unknown) {
+        if (active) {
+          setStations([]);
+          const apiErr = err as { code?: string };
+          if (apiErr?.code === "rate_limited") {
+            setSearchError("Слишком частые запросы (лимит 10 в минуту). Пожалуйста, подождите немного и нажмите «Найти».");
+          } else {
+            setSearchError("Не удалось загрузить станции. Попробуйте повторить запрос.");
+          }
+        }
       } finally {
         if (active) setStationsLoading(false);
       }
@@ -119,7 +167,7 @@ export function AccountCentre({
     return () => {
       active = false;
     };
-  }, [searchQuery, selectedTag]);
+  }, [activeSearch, selectedTag]);
 
   const handleToggleFavorite = (stationId: string) => {
     setFavorites((prev) => {
@@ -182,14 +230,6 @@ export function AccountCentre({
     const currentIndex = currentStation ? displayedStations.findIndex((s) => s.id === currentStation.id) : 0;
     const prevIndex = (currentIndex - 1 + displayedStations.length) % displayedStations.length;
     handlePlayStation(displayedStations[prevIndex]);
-  };
-
-  const handleTagSelect = (tag: string) => {
-    setSelectedTag(tag);
-    setSearchQuery("");
-    if (activeTab !== "stations") {
-      setActiveTab("stations");
-    }
   };
 
   if (accountState === "loading")
@@ -267,6 +307,7 @@ export function AccountCentre({
         accountName={accountName}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
+        onSearchSubmit={handleSearchSubmit}
         onLogout={onLogout}
         logoutBusy={logoutBusy}
       />
@@ -321,6 +362,9 @@ export function AccountCentre({
               loading={stationsLoading}
               searchQuery={searchQuery}
               onSearchChange={handleSearchChange}
+              onSearchSubmit={handleSearchSubmit}
+              onSearchClear={handleSearchClear}
+              searchError={searchError}
               selectedTag={selectedTag}
               activeTab={activeTab}
             />

@@ -193,16 +193,14 @@ export function PlayerDeck({
         <div class="player-station-info">
           <div class="player-cover-wrap">
             <span class="station-thumb-placeholder player-thumb" aria-hidden="true">◉</span>
-            {currentStation.favicon_url && (
-              <img
-                class="player-cover-img"
-                src={currentStation.favicon_url}
-                alt=""
-                onError={(e) => {
-                  e.currentTarget.hidden = true;
-                }}
-              />
-            )}
+            <img
+              class="player-cover-img"
+              src={currentStation.favicon_url || `/api/v1/stations/${encodeURIComponent(currentStation.id)}/icon`}
+              alt=""
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
           </div>
 
           <div class="player-text-wrap">
