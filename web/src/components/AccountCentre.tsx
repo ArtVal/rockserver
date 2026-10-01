@@ -183,7 +183,7 @@ export function AccountCentre({
             apiErr?.status === 429 ||
             (typeof apiErr?.message === "string" && apiErr.message.includes("rate limit"));
           if (isRateLimited) {
-            setSearchError("Слишком частые запросы (лимит 10 в минуту). Подождите немного перед следующим переключением.");
+            setSearchError("Слишком частые запросы. Подождите несколько секунд перед следующим переключением.");
           } else {
             setSearchError("Не удалось загрузить станции. Попробуйте повторить запрос.");
           }

@@ -26,8 +26,8 @@ const DEVICE_CATALOG_BROWSE_LIMIT: PublicLimit = PublicLimit {
     burst: 20,
 };
 const DEVICE_CATALOG_SEARCH_LIMIT: PublicLimit = PublicLimit {
-    requests: 30,
-    burst: 10,
+    requests: 120,
+    burst: 60,
 };
 const MAX_DEVICE_QUERY_CHARS: usize = 128;
 

@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-01
 
+## SEARCH-RATE-LIMIT-001: Search and device catalog rate limits increased to production parameters (2026-10-01)
+
+Increased rate limits for search and device catalog routes to production-grade thresholds:
+- Public search quota (`SEARCH_LIMIT`): increased burst capacity from 10 to 60 requests and baseline rate from 30 to 120 requests/minute.
+- Device catalog search quota (`DEVICE_CATALOG_SEARCH_LIMIT`): increased burst capacity from 10 to 60 requests and baseline rate from 30 to 120 requests/minute.
+- Test suites: updated burst rejection tests in `tests/search_api.rs` and `tests/device_catalog_api.rs` to assert the 60-request burst ceiling.
+- Web UI: updated rate limit error notice in `AccountCentre.tsx` to remove hardcoded `(лимит 10 в минуту)`.
+- Verification: `cargo fmt --check`, strict Clippy, `cargo test`, `pnpm test` (15/15), and `pnpm build` all green.
+- Next step: deploy release commit to staging and verify live endpoint.
+
 ## DEPLOY: Station preset cache, error preservation, and right column overflow fix deployed to staging (2026-10-01)
 
 Release commit `cc011cb` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:

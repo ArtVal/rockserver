@@ -168,7 +168,7 @@ async fn api_v1_search_is_anonymous() {
 #[tokio::test]
 async fn anonymous_search_rejects_the_burst_before_work_is_started() {
     let app = rockserver::http::router();
-    for _ in 0..10 {
+    for _ in 0..60 {
         let response = app
             .clone()
             .oneshot(

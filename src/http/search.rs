@@ -23,8 +23,8 @@ use super::{
 };
 
 const SEARCH_LIMIT: PublicLimit = PublicLimit {
-    requests: 30,
-    burst: 10,
+    requests: 120,
+    burst: 60,
 };
 
 /// Transport representation of the `SearchRequest` OpenAPI schema.

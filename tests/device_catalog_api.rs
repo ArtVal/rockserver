@@ -553,7 +553,7 @@ async fn search_rate_limit_matches_the_public_search_quota() {
         Uuid::new_v4(),
     )));
 
-    for _ in 0..10 {
+    for _ in 0..60 {
         let (status, _, _) = get(
             app.clone(),
             &format!("{SEARCH_PATH}?q=rock"),

@@ -1,5 +1,23 @@
 # Task log
 
+## 2026-10-01 — SEARCH-RATE-LIMIT-001: increase search and device catalog rate limits to production parameters
+
+- Goal: increase search rate limits from restrictive 10 burst / 30 rpm to production-friendly 60 burst / 120 rpm across public search (`POST /api/v1/search`) and device catalog search (`GET /api/v1/device-catalog/search`), eliminating spurious HTTP 429 errors during interactive station discovery.
+- Scope:
+  - `src/http/search.rs`: increased `SEARCH_LIMIT` from `burst: 10, requests: 30` to `burst: 60, requests: 120`.
+  - `src/http/device_catalog.rs`: increased `DEVICE_CATALOG_SEARCH_LIMIT` from `burst: 10, requests: 30` to `burst: 60, requests: 120`.
+  - `tests/search_api.rs`: updated `anonymous_search_rejects_the_burst_before_work_is_started` burst rejection test loop from `0..10` to `0..60`.
+  - `tests/device_catalog_api.rs`: updated `search_rate_limit_matches_the_public_search_quota` burst rejection test loop from `0..10` to `0..60`.
+  - `web/src/components/AccountCentre.tsx`: removed hardcoded `(лимит 10 в минуту)` from rate limit error notice.
+- Checks:
+  - `cargo fmt --check`: passed.
+  - `cargo clippy --all-targets --all-features -- -D warnings`: passed with 0 warnings.
+  - `cargo test`: passed all unit, integration, and contract tests.
+  - `pnpm test`: passed all 15/15 UX/security tests.
+  - `pnpm run build`: TypeScript typecheck and Vite production build clean.
+- Status: **completed**.
+
+
 ## 2026-10-01 — DEPLOY: Station preset cache, error preservation, and right column overflow fix deployed to staging
 
 - Goal: build, deploy, and verify release commit `cc011cb` on the staging VPS via `deploy/ops-001-d.ps1`.
