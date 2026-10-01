@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-01
 
+## DEPLOY: Device card formatting, official logo, search debounce/rate-limit fix, and station icons deployed to staging (2026-10-01)
+
+Release commit `ce32f9d` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
+- Images built:
+  - `rockserver:sha-ce32f9df6b8d43a4e2192a878e8965b68e6add66` (`sha256:c853c0a1b98019530c7270a8a2950debd2fb8a6206b219707ccf3fa0da4a4207`)
+  - `rockserver-caddy:sha-ce32f9df6b8d43a4e2192a878e8965b68e6add66`
+- Remote deploy status: `status=succeeded` (`log=/home/rockserver/logs/deploy-ce32f9df6b8d43a4e2192a878e8965b68e6add66.log`).
+- Remote readiness probe verified: `readiness=passed`.
+- Current working state: official RockCast logo renders in header and favicon, search input is debounced and supports explicit submit via «Найти» / Enter, station card icons render in both grid and table views, and connected hardware cards are neatly formatted vertically.
+- Next step: monitor staging telemetry and await user feedback.
+
 ## WEB-UI-006: connected device cards formatting, official logo, search debounce/rate-limit fix, and station icons styling (2026-10-01)
 
 Resolved layout formatting, branding, search rate limits, and station icon styling:
@@ -10,7 +21,7 @@ Resolved layout formatting, branding, search rate limits, and station icon styli
 - Search rate-limit (HTTP 429) prevention: decoupled input typing state from search query execution; added a 700ms debounce to prevent firing network requests on every keystroke; provided prominent «Найти» buttons and Enter key submission; added Russian-language error banner with retry button when rate limits occur.
 - Station tile icons and card styling: wired favicon fallback to `/api/v1/stations/{id}/icon` in `StationsView.tsx` and `PlayerDeck.tsx`; added proper styling for `.station-icon-wrap` (48x48px rounded container with WebP image and letter fallback), card header, tag pills, play button, and table view thumbnails in `style.css`.
 - Verification: `pnpm test` (all 15/15 tests passing), `pnpm build` (`tsc --noEmit` and Vite build clean), `cargo fmt --check`, strict Clippy, and `cargo test` all green.
-- Next step: await user review and instruction before commit and deploy.
+- Next step: monitor user interaction and telemetry in staging.
 
 ## DEPLOY: Cyber-Tuner navigation, search deck, and limit 422 fix deployed to staging (2026-10-01)
 

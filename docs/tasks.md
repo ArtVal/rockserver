@@ -1,5 +1,16 @@
 # Task log
 
+## 2026-10-01 — DEPLOY: Device card formatting, official logo, search debounce/rate-limit fix, and station icons deployed to staging
+
+- Goal: build, deploy, and verify release commit `ce32f9d` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-ce32f9df6b8d43a4e2192a878e8965b68e6add66` (`sha256:c853c0a1b98019530c7270a8a2950debd2fb8a6206b219707ccf3fa0da4a4207`) and `rockserver-caddy:sha-ce32f9df6b8d43a4e2192a878e8965b68e6add66`.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified remote execution: worker PID 963630 completed with `status=succeeded`, remote readiness probe passed (`readiness=passed`).
+  - Verified live deployment: `https://rockplatform.win/icon_logo.png` returned HTTP 200 OK image/png, and index.html loads with new assets.
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `ce32f9d`.
+
 ## 2026-10-01 — WEB-UI-006: connected device cards formatting, official logo, search debounce/rate-limit fix, and station icons styling
 
 - Goal: fix connected device cards text wrapping, replace placeholder badge with official RockCast logo, prevent search rate limiting (HTTP 429) via debounce and explicit submit button, and fix station icons styling on grid cards and table rows.
@@ -27,7 +38,7 @@
     - `pnpm test`: all 15/15 UX and security regression tests passed.
     - `pnpm build`: TypeScript typecheck (`tsc --noEmit`), lint, and Vite production bundle clean.
     - `cargo fmt --check`, strict Clippy, and `cargo test`: all green.
-- Status: **implemented locally; pending user review before commit and deployment.**
+- Status: **deployed** as commit `ce32f9d`.
 
 ## 2026-10-01 — DEPLOY: Cyber-Tuner navigation, search deck, and limit 422 fix deployed to staging
 
