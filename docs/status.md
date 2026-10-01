@@ -2,6 +2,62 @@
 
 Last updated: 2026-10-01
 
+## WEB-UI-004: Frontend test expansion and full-stack verification (Stage 4) (2026-10-01)
+
+Expanded the automated UX and security test suite and verified the complete Cyber-Tuner / Studio Deck cabinet and web player:
+- Test suite expansion: updated `web/tests/ux-regression.mjs` from 11 to 15 tests, adding automated assertions covering:
+  - HTML5 audio streaming element with dynamic source `/api/v1/stations/{id}/stream`.
+  - Real-time SSE ICY metadata listener `/api/v1/stations/{id}/events` and initial fetch fallback.
+  - Player controls: master play/pause, volume slider attenuation, and volume state persistence in `localStorage`.
+  - Stations view: tuner selector, WebP station icons, bitrate/codec badges, and 4-bar animated VU-meter equalizers.
+  - Sidebar navigation: station search filter, `#genre` presets, and Cloud Sync LWW telemetry indicator.
+  - Responsive CSS system: `@keyframes vuBounce`, fixed `.player-deck-bar`, glassmorphic backdrop-blur, tablet (`max-width: 1200px`) and mobile (`max-width: 768px`) breakpoints.
+  - Architecture modularity: decomposed `AccountCentre.tsx` and `PairingView.tsx` from `app.tsx`, bringing every frontend source file comfortably under the strict 400-500 line budget.
+  - Strict security invariants: zero leakage of `access_token`, `refresh_token`, `desktop_token`, `approval_secret`, or raw request IDs into DOM attributes or client logs.
+- Verification results:
+  - `pnpm test`: all 15/15 regression tests passed.
+  - `pnpm build`: `tsc --noEmit` clean, Vite production bundle generated without errors.
+  - `cargo fmt --check`: passed.
+  - `cargo clippy --all-targets --all-features -- -D warnings`: 0 warnings.
+  - `cargo test`: all library, OpenAPI, and unit test suites passed.
+- Current working state: the web cabinet is fully decomposed into modular components, supports authenticated live stream playback, syncs live ICY track titles via SSE, presents a cyber-tuner / studio deck aesthetic across desktop/tablet/mobile, and passes all security and regression tests.
+- Next step: deploy and verify on staging or await user feedback on live stream experience.
+
+## WEB-UI-003: Cyber-Tuner / Studio Deck responsive CSS design system (Stage 3) (2026-10-01)
+
+Deployed the modern responsive Cyber-Tuner and Studio Deck CSS styling system across the modular web application:
+- Aesthetic foundation: deep space graphite surfaces (`#080b0f`, `#0f141d`), hairline borders, warm glowing amber accents (`#f59e0b`), cyber-cyan and emerald indicators, 4-bar animated VU equalizers, and pulsating live signal beacons.
+- Multi-tier responsive grid: 3-column workstation layout on wide monitors (navigation dock, central tuner station cards, hardware and Yandex Smart Home telemetry HUD), adaptive 2-column tablet layout, and touch-optimized mobile column stack.
+- Persistent bottom audio player deck: backdrop-blur glass styling (`backdrop-filter: blur(16px)`), master transport controls, volume attenuation slider, and station artwork preview with fallback markers.
+- Backward compatibility: preserved 100% of existing pairing/registration forms, access controls, accessible status landmarks, mobile button sizing, and scoped desktop-first administrator console (`.admin-app`).
+- Verification: `pnpm test` (all 11/11 UX regression tests passed), `pnpm build` (`tsc --noEmit` and Vite bundling passed), `cargo fmt --check`, strict all-targets/all-features Clippy, and `cargo test` all green.
+- Next step: review user feedback on live stream playback in staging / browser.
+
+## WEB-UI-002: online radio stream player and real-time SSE title synchronization (Stage 2) (2026-10-01)
+
+Integrated in-browser radio stream playback and real-time live ICY metadata updates into the modular cabinet:
+- `web/src/components/PlayerDeck.tsx`: added an underlying HTML5 streaming node connected to `GET /api/v1/stations/{id}/stream` (authorized via same-origin browser session cookie from RR-001). Implemented transport state tracking (buffering, error, playing, paused), volume attenuation, master transport controls, initial metadata retrieval via `api.stationNowPlaying`, and live title synchronization over SSE `GET /api/v1/stations/{id}/events` (from RR-002).
+- `web/src/api.ts`: updated `StationNowPlaying` to support both camelCase and snake_case properties (`stationId`/`station_id`, `rawTitle`/`raw_title`, `updatedAt`/`updated_at`).
+- `web/src/app.tsx`: added cycling through next/previous stations in the active view, persisted volume and favorites in `localStorage`, and bound playback events and observed track titles across the tuner grid and deck player.
+- Verification: `pnpm test` (all 11/11 UX regression tests passed), `pnpm build` (`tsc --noEmit` and Vite bundling passed), `cargo fmt --check`, strict all-targets/all-features Clippy, and `cargo test` all green.
+- Next step: Stage 3 (studio deck / cyber-tuner responsive CSS styling in `web/src/style.css`).
+
+## WEB-UI-001: modular frontend component decomposition for user cabinet and web player (Stage 1) (2026-10-01)
+
+Decomposed the monolithic browser cabinet (`web/src/app.tsx`) into dedicated modular components under `web/src/components/` to prepare the foundation for the cyber-tuner / studio deck responsive UI and persistent web radio player:
+- `web/src/components/Header.tsx`: tuner search bar, system status indicator, passkey account pill, and logout controls.
+- `web/src/components/SidebarNav.tsx`: navigation deck tabs (stations, favorites, history, devices), genre frequency presets (`#all`, `#rock`, `#electronic`, `#synthwave`, `#jazz`, `#classical`, `#ambient`), and cloud sync (LWW) status badge.
+- `web/src/components/StationsView.tsx`: responsive tuner grid and table views with station WebP icon previews, codec/bitrate badges, favorite toggles, and animated VU-meter equalizers for active streams.
+- `web/src/components/HardwareHud.tsx`: connected devices list (RockCast and RockMobile), session status indicators, rename/revoke operations, pairing guides, and passkey security details.
+- `web/src/components/YandexHomeCard.tsx`: Yandex Alice Smart Home OAuth integration, telemetry polling, and multi-metric sensor cards (temperature, humidity, CO2, voltage, battery).
+- `web/src/components/PlayerDeck.tsx`: persistent bottom studio deck player with station details, live track title display, master playback controls, and volume slider.
+- `web/src/api.ts`: extended with typed station models (`StationItem`, `SearchResponse`, `StationNowPlaying`) and client helpers (`searchStations`, `stationNowPlaying`).
+- `web/src/app.tsx`: streamlined to assemble the modular components while preserving all security, passkey pairing, and cabinet state boundaries.
+- `web/tests/ux-regression.mjs`: updated test loader to test the unified component suite; all 11/11 UX and security regression tests pass cleanly.
+
+Verification: `pnpm test` (11/11 passed), `pnpm build` (`tsc --noEmit` and Vite bundling passed), `cargo fmt --check`, strict all-targets/all-features Clippy, and `cargo test` all green.
+Next step: Stage 2 (live audio stream playback through `/api/v1/stations/{id}/stream` and real-time SSE track updates via `/api/v1/stations/{id}/events`).
+
 ## RR-002: station now-playing API and SSE (2026-10-01)
 
 Implemented authenticated `GET /api/v1/stations/{station_id}/now-playing` and `/events` from the RR-001 process-local ICY `rawTitle` snapshot. Both reuse relay session and catalog checks and never open an upstream. JSON and SSE snapshots expose `stationId`, nullable `rawTitle`/`updatedAt`, and `missing`/`fresh`/`stale` state (stale after 120 seconds); SSE sends the current snapshot first, title observations and stale transition afterward. Event connections reauthorize on reconnect, close after one hour, and use 64 global subscriber slots, a 64-event broadcast ring, and a two-event subscriber queue; slow subscribers disconnect and reconnect for the latest snapshot. Audio and in-stream ICY behavior are unchanged. Local fake-upstream tests cover metadata reads without upstream, auth/query denial, title changes during one audio response, reconnect, stale/missing state, disconnect, slow subscriber, and capacity. Verification: `cargo fmt --check`, strict all-target/all-feature Clippy, and `cargo test` passed; disposable-PostgreSQL and live-provider tests remain ignored without their configured environments. Limitations: each audio listener still has an independent upstream, so station metadata is best effort until RR-006; RR-003 client migration remains next.

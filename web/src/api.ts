@@ -14,6 +14,9 @@ export type AdminDevice = { product: "RockCast" | "RockMobile"; device_type: str
 export type AdminAuditEntry = { occurred_at: string; action: string; outcome: string };
 export type AdminStation = { station_id: string; name: string; tags: string[]; language?: string; country_code?: string; health: string };
 export type AdminIconJob = { id: string; status: "running" | "completed" | "interrupted" | "failed"; selected: number; processed: number; ready: number; missing: number; retryable_error: number; permanent_error: number; skipped: number };
+export type StationItem = { id: string; name: string; stream_url?: string; homepage_url?: string; tags: string[]; language?: string; country_code?: string; codec?: string; bitrate_kbps?: number; health?: string; favicon_url?: string };
+export type SearchResponse = { request_id: string; stations: StationItem[]; total?: number; has_more?: boolean };
+export type StationNowPlaying = { stationId?: string; station_id?: string; state: "fresh" | "stale" | "missing"; rawTitle?: string | null; raw_title?: string | null; updatedAt?: string | null; updated_at?: string | null };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, { ...init, credentials: "same-origin", headers: { "Content-Type": "application/json", ...init.headers } });
@@ -39,6 +42,12 @@ export const api = {
   pairing(code: string) { return request<PairingPreview>(`/api/v1/pairing-requests/lookup?code=${encodeURIComponent(code)}`); },
   approvePairing(requestId: string, approvalSecret: string, verificationPhrase: string, csrfToken: string) {
     return request<void>(`/api/v1/pairing-requests/${requestId}/approve`, { method: "POST", headers: { "X-CSRF-Token": csrfToken }, body: JSON.stringify({ approval_secret: approvalSecret, verification_phrase: verificationPhrase }) });
+  },
+  searchStations(query: string, limit = 20, offset = 0) {
+    return request<SearchResponse>("/api/v1/search", { method: "POST", body: JSON.stringify({ query, limit, offset }) });
+  },
+  stationNowPlaying(stationId: string) {
+    return request<StationNowPlaying>(`/api/v1/stations/${encodeURIComponent(stationId)}/now-playing`);
   },
 };
 

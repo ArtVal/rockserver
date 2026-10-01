@@ -1,5 +1,47 @@
 # Task log
 
+## 2026-10-01 — WEB-UI-004: frontend test expansion and full-stack verification (Stage 4)
+
+- Goal: expand the frontend UX and security regression test suite to cover HTML5 audio streaming, real-time SSE ICY metadata synchronization, Cyber-Tuner controls, animated VU-meter keyframes, and responsive CSS rules.
+- Scope:
+  - `web/tests/ux-regression.mjs`: expanded test suite from 11 to 15 tests, adding assertions for:
+    - Audio stream player embedding (`<audio ref={audioRef}>`), stream URL `/api/v1/stations/{id}/stream`, SSE URL `/api/v1/stations/{id}/events`, initial `api.stationNowPlaying`, `EventSource` subscription, master transport controls, volume slider, and local storage volume persistence.
+    - Tuner station selector, WebP favicon icons, bitrate/codec badges, and animated VU-meter equalizers (`vu-equalizer`, `vu-bar`).
+    - Sidebar navigation dock, live tuner search, frequency presets (`#synthwave`, `#rock`, etc.), and Cloud Sync LWW indicator.
+    - Cyber-Tuner CSS system: `@keyframes vuBounce`, fixed `.player-deck-bar`, glassmorphic `backdrop-filter: blur(16px)`, tablet `@media (max-width: 1200px)` and mobile `@media (max-width: 768px)` breakpoints.
+  - Component modularization: extracted `AccountCentre.tsx` (315 lines) and `PairingView.tsx` (223 lines) from `app.tsx` (reduced to 419 lines), ensuring every single frontend source file remains strictly bounded under the 400-500 line budget.
+  - Verified zero DOM leakage of authentication tokens or secret credentials.
+- Checks: `pnpm test` (all 15/15 UX regression tests passed), `pnpm build` (`tsc --noEmit` and Vite bundling passed), `cargo fmt --check`, strict all-targets/all-features Clippy, and `cargo test` all green.
+- Status: Stage 4 complete; all 4 stages of the user cabinet and web player redesign are complete and verified.
+
+## 2026-10-01 — WEB-UI-003: Cyber-Tuner / Studio Deck responsive CSS design system (Stage 3)
+
+- Goal: implement high-end studio audio deck aesthetics, responsive 3-column desktop grid, tablet and mobile ergonomics, and animated VU-meter equalizers in `web/src/style.css`.
+- Scope:
+  - `web/src/style.css`: designed and implemented the Cyber-Tuner CSS system: deep space graphite surfaces (`#080b0f`), hairline tactile borders, glowing amber accents (`#f59e0b`), cyber-cyan and emerald telemetry indicators, animated 4-bar VU-equalizers (`vu-bar`), and pulsing live dots.
+  - Multi-tier responsive grid: wide desktop 3-column layout (240px navigation dock, central tuner station cards, 330px hardware/Yandex telemetry HUD), 2-column tablet layout, and mobile-friendly vertical stack.
+  - Persistent bottom audio player deck: backdrop-blur glass styling (`backdrop-filter: blur(16px)`), master transport controls, volume attenuation slider, and station artwork preview with fallback markers.
+  - Preserved 100% of existing pairing/registration forms, access controls, accessible status landmarks, mobile button sizing, and scoped desktop-first administrator console (`.admin-app`).
+- Checks: `pnpm test` (all 11/11 UX regression tests passed), `pnpm build` (`tsc --noEmit` and Vite bundling passed), `cargo fmt --check`, strict all-targets/all-features Clippy, and `cargo test` all green.
+- Status: Stage 3 complete; new UI, web player, and studio deck styling are fully implemented and verified.
+
+## 2026-10-01 — WEB-UI-002: online radio stream player and real-time SSE title synchronization (Stage 2)
+
+- Goal: implement in-browser audio streaming from `/api/v1/stations/{id}/stream` and real-time live ICY track metadata synchronization via SSE `/api/v1/stations/{id}/events`.
+- Scope:
+  - `web/src/components/PlayerDeck.tsx`: added HTML5 `<audio>` streaming controller with transport state handling (buffering, error, playing, paused), volume attenuation, master transport controls, initial metadata fetch via `api.stationNowPlaying`, and real-time SSE `EventSource` subscription to `/api/v1/stations/{id}/events` updating observed ICY track title dynamically.
+  - `web/src/api.ts`: extended `StationNowPlaying` type to support both camelCase and snake_case properties (`stationId`/`station_id`, `rawTitle`/`raw_title`, `updatedAt`/`updated_at`).
+  - `web/src/app.tsx`: added next/previous station navigation cycling, volume and favorite persistence in `localStorage`, and real-time title and playback state synchronization across catalog views.
+- Checks: `pnpm test` (all 11/11 UX regression tests passed), `pnpm build` (`tsc --noEmit` and Vite bundling passed), `cargo fmt --check`, strict all-targets/all-features Clippy, and `cargo test` all green.
+- Status: Stage 2 complete; Stage 3 (studio deck / cyber-tuner responsive CSS styling) is next.
+
+## 2026-10-01 — WEB-UI-001: modular frontend component decomposition for user cabinet and web player (Stage 1)
+
+- Goal: decompose the monolithic browser cabinet (`web/src/app.tsx`) into modular components preparing for cyber-tuner / studio deck responsive UI and integrated web radio player.
+- Scope: extracted `Header.tsx`, `SidebarNav.tsx`, `StationsView.tsx`, `HardwareHud.tsx`, `YandexHomeCard.tsx`, and `PlayerDeck.tsx` under `web/src/components/`. Extended `web/src/api.ts` with station and search typing/methods (`searchStations`, `stationNowPlaying`). Updated `web/src/app.tsx` and `web/tests/ux-regression.mjs` to maintain all 11 security/UX regression assertions.
+- Checks: `pnpm test` (11/11 UX regression tests passed), `pnpm build` (`tsc --noEmit` and `vite build` cleanly bundled), `cargo fmt --check`, strict all-targets/all-features Clippy, and `cargo test` passed.
+- Status: Stage 1 complete; Stage 2 (live audio playback and SSE stream integration) and Stage 3 (studio deck styling) are next.
+
 ## 2026-10-01 — RR-002: station now-playing API and SSE
 
 - Goal: expose RR-001 ICY title snapshots to Web UI through authorized reads and events.
