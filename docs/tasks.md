@@ -1,5 +1,16 @@
 # Task log
 
+## 2026-10-01 — DEPLOY: Search and device catalog rate limits increased to production parameters deployed to staging
+
+- Goal: build, deploy, and verify release commit `9ec1413` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-9ec1413be1f159de2274002968e7ef71b4a53f3d` (`sha256:a0ae67a8fcd2dae0a48dae160536294e6f29ffd3d397d03293d25f3fb446e571`) and `rockserver-caddy:sha-9ec1413be1f159de2274002968e7ef71b4a53f3d`.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified remote execution: worker PID 1087495 completed with `status=succeeded`, remote readiness probe passed (`readiness=passed`).
+  - Verified live deployment: `https://rockplatform.win/api/v1/search` returned results with high throughput and no 429 rate limit errors.
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `9ec1413`.
+
 ## 2026-10-01 — SEARCH-RATE-LIMIT-001: increase search and device catalog rate limits to production parameters
 
 - Goal: increase search rate limits from restrictive 10 burst / 30 rpm to production-friendly 60 burst / 120 rpm across public search (`POST /api/v1/search`) and device catalog search (`GET /api/v1/device-catalog/search`), eliminating spurious HTTP 429 errors during interactive station discovery.

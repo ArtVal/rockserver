@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-01
 
+## DEPLOY: Search and device catalog rate limits increased to production parameters deployed to staging (2026-10-01)
+
+Release commit `9ec1413` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
+- Images built:
+  - `rockserver:sha-9ec1413be1f159de2274002968e7ef71b4a53f3d` (`sha256:a0ae67a8fcd2dae0a48dae160536294e6f29ffd3d397d03293d25f3fb446e571`)
+  - `rockserver-caddy:sha-9ec1413be1f159de2274002968e7ef71b4a53f3d`
+- Remote deploy status: `status=succeeded` (`log=/home/rockserver/logs/deploy-9ec1413be1f159de2274002968e7ef71b4a53f3d.log`).
+- Remote readiness probe verified: `readiness=passed`.
+- Current working state: search burst capacity increased from 10 to 60 requests (120/min) on both public search and device catalog search; in-memory preset cache handles instant filter navigation; rate-limited error message cleaned up; live endpoint verified.
+- Next step: monitor staging telemetry and user feedback.
+
 ## SEARCH-RATE-LIMIT-001: Search and device catalog rate limits increased to production parameters (2026-10-01)
 
 Increased rate limits for search and device catalog routes to production-grade thresholds:
