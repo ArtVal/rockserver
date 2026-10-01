@@ -1,5 +1,26 @@
 # Task log
 
+## 2026-10-01 — WEB-UI-005: search limit 422 fix, tuner search deck, and cabinet navigation wiring
+
+- Goal: fix empty station catalog on initial load and preset tag clicks, provide a dedicated tuner search input, and wire left console navigation tabs.
+- Scope:
+  - `web/src/components/AccountCentre.tsx`:
+    - Fixed station search query parameter: reduced `limit` from 24 to 20 to conform to backend validation bounds (`limit <= 20` enforced in `src/http/search.rs`); previously caused silent 422 Unprocessable Entity and empty lists.
+    - Wired `activeTab` in center column: renders `HardwareHud` and `YandexHomeCard` when `activeTab === "devices"`, and filters to local history when `activeTab === "history"`.
+    - Implemented playback history tracking persisted in `localStorage` (`rockserver_player_history`, up to 30 items).
+    - Added `handleTagSelect` and `handleSearchChange` to keep search state consistent and switch view to `stations` automatically.
+  - `web/src/components/StationsView.tsx`:
+    - Added dedicated tuner search deck (`tuner-search-deck`) with search icon, clear button (✕), and search event bindings.
+    - Added context-aware empty state messages for "favorites" and "history" tabs.
+  - `web/src/style.css`:
+    - Added styling for `.tuner-search-deck`, `.tuner-search-wrap`, `.tuner-search-input`, `.search-clear-btn`, and `.cabinet-center-devices`.
+  - Verification:
+    - End-to-end verification via Playwright: initial catalog render (20 stations), `#jazz` frequency preset click (20 stations), text search for "Rock FM" (20 stations), and "Оборудование" sidebar navigation switch.
+    - `pnpm test`: all 15/15 UX regression tests passed.
+    - `pnpm build`: TypeScript typecheck and Vite production build clean.
+    - `cargo fmt --check`, strict Clippy, and `cargo test`: all green.
+- Status: **complete locally; ready for commit and staging deployment.**
+
 ## 2026-10-01 — DEPLOY: Cyber-Tuner web cabinet and radio player deployed to staging
 
 - Goal: build, deploy, and verify release commit `2624b6b` on the staging VPS via `deploy/ops-001-d.ps1`.

@@ -50,12 +50,30 @@ export function AccountCentre({
   const [activeTab, setActiveTab] = useState<NavTab>("stations");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      setSelectedTag("");
+    }
+    if (activeTab !== "stations" && activeTab !== "favorites" && activeTab !== "history") {
+      setActiveTab("stations");
+    }
+  };
   const [stations, setStations] = useState<StationItem[]>([]);
   const [stationsLoading, setStationsLoading] = useState(false);
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("rockserver_player_favorites");
       return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [history, setHistory] = useState<StationItem[]>(() => {
+    try {
+      const stored = localStorage.getItem("rockserver_player_history");
+      return stored ? (JSON.parse(stored) as StationItem[]) : [];
     } catch {
       return [];
     }
@@ -81,14 +99,15 @@ export function AccountCentre({
     }
   };
 
-  // Search or fetch stations when query or selected tag changes
+  // Search or fetch stations when query or selected tag changes.
+  // Note: Backend limits max items per request to 20.
   useEffect(() => {
     let active = true;
     const loadStations = async () => {
       setStationsLoading(true);
       try {
         const query = searchQuery.trim() || selectedTag || "rock";
-        const res = await api.searchStations(query, 24);
+        const res = await api.searchStations(query, 20);
         if (active) setStations(res.stations ?? []);
       } catch {
         if (active) setStations([]);
@@ -117,6 +136,16 @@ export function AccountCentre({
   };
 
   const handlePlayStation = (station: StationItem) => {
+    setHistory((prev) => {
+      const next = [station, ...prev.filter((s) => s.id !== station.id)].slice(0, 30);
+      try {
+        localStorage.setItem("rockserver_player_history", JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+
     if (currentStation?.id === station.id) {
       setIsPlaying(!isPlaying);
     } else {
@@ -134,20 +163,33 @@ export function AccountCentre({
     }
   };
 
+  const displayedStations =
+    activeTab === "favorites"
+      ? stations.filter((s) => favorites.includes(s.id))
+      : activeTab === "history"
+      ? history
+      : stations;
+
   const handleNextStation = () => {
-    const list = activeTab === "favorites" ? stations.filter((s) => favorites.includes(s.id)) : stations;
-    if (!list.length) return;
-    const currentIndex = currentStation ? list.findIndex((s) => s.id === currentStation.id) : -1;
-    const nextIndex = (currentIndex + 1) % list.length;
-    handlePlayStation(list[nextIndex]);
+    if (!displayedStations.length) return;
+    const currentIndex = currentStation ? displayedStations.findIndex((s) => s.id === currentStation.id) : -1;
+    const nextIndex = (currentIndex + 1) % displayedStations.length;
+    handlePlayStation(displayedStations[nextIndex]);
   };
 
   const handlePrevStation = () => {
-    const list = activeTab === "favorites" ? stations.filter((s) => favorites.includes(s.id)) : stations;
-    if (!list.length) return;
-    const currentIndex = currentStation ? list.findIndex((s) => s.id === currentStation.id) : 0;
-    const prevIndex = (currentIndex - 1 + list.length) % list.length;
-    handlePlayStation(list[prevIndex]);
+    if (!displayedStations.length) return;
+    const currentIndex = currentStation ? displayedStations.findIndex((s) => s.id === currentStation.id) : 0;
+    const prevIndex = (currentIndex - 1 + displayedStations.length) % displayedStations.length;
+    handlePlayStation(displayedStations[prevIndex]);
+  };
+
+  const handleTagSelect = (tag: string) => {
+    setSelectedTag(tag);
+    setSearchQuery("");
+    if (activeTab !== "stations") {
+      setActiveTab("stations");
+    }
   };
 
   if (accountState === "loading")
@@ -218,18 +260,13 @@ export function AccountCentre({
     );
   if (!account) return null;
 
-  const displayedStations =
-    activeTab === "favorites"
-      ? stations.filter((s) => favorites.includes(s.id))
-      : stations;
-
   return (
     <div class="cabinet-layout">
       {/* Top Application Header */}
       <Header
         accountName={accountName}
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         onLogout={onLogout}
         logoutBusy={logoutBusy}
       />
@@ -240,11 +277,11 @@ export function AccountCentre({
           activeTab={activeTab}
           onTabChange={setActiveTab}
           selectedTag={selectedTag}
-          onTagSelect={setSelectedTag}
+          onTagSelect={handleTagSelect}
           favoritesCount={favorites.length}
         />
 
-        {/* Center Column: Tuner & Station Grid */}
+        {/* Center Column: Tuner & Station Grid OR Hardware Devices view */}
         <div class="cabinet-center-col">
           {accountMessage && (
             <p class="account-alert" role="status">
@@ -256,36 +293,66 @@ export function AccountCentre({
             ✓ Выполнен вход в браузере
           </p>
 
-          <StationsView
-            stations={displayedStations}
-            activeStationId={currentStation?.id}
-            isPlaying={isPlaying}
-            currentTrackTitle={trackTitle}
-            onPlayStation={handlePlayStation}
-            favorites={favorites}
-            onToggleFavorite={handleToggleFavorite}
-            loading={stationsLoading}
-            searchQuery={searchQuery}
-            selectedTag={selectedTag}
-          />
+          {activeTab === "devices" ? (
+            <div class="cabinet-center-devices">
+              <HardwareHud
+                account={account}
+                deviceBusy={deviceBusy}
+                justConnected={justConnected}
+                onRename={onRename}
+                onRevoke={onRevoke}
+              />
+              <YandexHomeCard
+                account={account}
+                csrf={csrf}
+                onChanged={onRetry}
+                initialStatus={yandexHomeStatus}
+              />
+            </div>
+          ) : (
+            <StationsView
+              stations={displayedStations}
+              activeStationId={currentStation?.id}
+              isPlaying={isPlaying}
+              currentTrackTitle={trackTitle}
+              onPlayStation={handlePlayStation}
+              favorites={favorites}
+              onToggleFavorite={handleToggleFavorite}
+              loading={stationsLoading}
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              selectedTag={selectedTag}
+              activeTab={activeTab}
+            />
+          )}
         </div>
 
         {/* Right Column: Hardware & Smart Home HUD */}
         <aside class="cabinet-right-col">
-          <HardwareHud
-            account={account}
-            deviceBusy={deviceBusy}
-            justConnected={justConnected}
-            onRename={onRename}
-            onRevoke={onRevoke}
-          />
-
-          <YandexHomeCard
-            account={account}
-            csrf={csrf}
-            onChanged={onRetry}
-            initialStatus={yandexHomeStatus}
-          />
+          {activeTab !== "devices" ? (
+            <>
+              <HardwareHud
+                account={account}
+                deviceBusy={deviceBusy}
+                justConnected={justConnected}
+                onRename={onRename}
+                onRevoke={onRevoke}
+              />
+              <YandexHomeCard
+                account={account}
+                csrf={csrf}
+                onChanged={onRetry}
+                initialStatus={yandexHomeStatus}
+              />
+            </>
+          ) : (
+            <div class="deck-panel guide-deck">
+              <div class="panel-kicker">Управление устройствами</div>
+              <p class="sync-desc">
+                Здесь отображаются все подключённые устройства Windows RockCast и RockMobile, а также интеграция с умным домом Яндекс.
+              </p>
+            </div>
+          )}
         </aside>
       </main>
 

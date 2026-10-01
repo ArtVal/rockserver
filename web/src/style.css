@@ -257,6 +257,37 @@ dd { margin: .15rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
   color: var(--text-muted); font-size: .75rem; font-weight: 600;
 }
 .mode-toggle-btn.active { background: var(--accent-amber); color: #000; font-weight: 800; }
+
+.tuner-search-deck {
+  padding: .5rem .75rem; background: #0c1219; border: 1px solid var(--border-deck); border-radius: 10px;
+}
+.tuner-search-wrap { position: relative; display: flex; align-items: center; }
+.tuner-search-wrap .search-icon { position: absolute; left: 12px; color: var(--accent-amber); font-size: 1.1rem; pointer-events: none; }
+.tuner-search-input {
+  width: 100% !important; margin: 0 !important; padding: .65rem 2.2rem .65rem 2.4rem !important;
+  background: #06090d !important; border: 1px solid #233446 !important; border-radius: 8px !important;
+  color: var(--text-primary) !important; font-size: .88rem !important; outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.tuner-search-input:focus {
+  border-color: var(--accent-amber) !important;
+  box-shadow: 0 0 12px -2px var(--accent-amber-glow) !important;
+}
+.tuner-search-input::-webkit-search-decoration,
+.tuner-search-input::-webkit-search-cancel-button,
+.tuner-search-input::-webkit-search-results-button,
+.tuner-search-input::-webkit-search-results-decoration {
+  -webkit-appearance: none; display: none;
+}
+.search-clear-btn {
+  position: absolute; right: 8px; background: transparent !important; border: 0 !important;
+  color: var(--text-muted) !important; font-size: .9rem !important; padding: 4px 8px !important;
+  margin: 0 !important; cursor: pointer;
+}
+.search-clear-btn:hover { color: #fff !important; }
+
+.cabinet-center-devices { display: grid; gap: 1.25rem; }
+
 .empty-deck { padding: 2.5rem; text-align: center; }
 .empty-title { font-weight: 700; margin: 0 0 .3rem; }
 .empty-hint { margin: 0; font-size: .8rem; color: var(--text-muted); }

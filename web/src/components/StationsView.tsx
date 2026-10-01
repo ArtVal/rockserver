@@ -16,7 +16,9 @@ export function StationsView({
   onToggleFavorite,
   loading = false,
   searchQuery = "",
+  onSearchChange,
   selectedTag = "",
+  activeTab = "stations",
 }: {
   stations: StationItem[];
   activeStationId?: string;
@@ -27,12 +29,25 @@ export function StationsView({
   onToggleFavorite?: (stationId: string) => void;
   loading?: boolean;
   searchQuery?: string;
+  onSearchChange?: (query: string) => void;
   selectedTag?: string;
+  activeTab?: string;
 }) {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
+  const title =
+    activeTab === "favorites"
+      ? "Моё Избранное"
+      : activeTab === "history"
+      ? "История эфира"
+      : "Эфирные радиопотоки";
+
   const subtitle = searchQuery
     ? `Результаты поиска по запросу «${searchQuery}»`
+    : activeTab === "favorites"
+    ? `Сохранённые любимые станции (${stations.length})`
+    : activeTab === "history"
+    ? `Недавно прослушанные станции (${stations.length})`
     : selectedTag
     ? `Станции по фильтру #${selectedTag}`
     : "Чистый поток без рекламы, ретрансляция с низкой задержкой";
@@ -48,7 +63,7 @@ export function StationsView({
               <span class="live-dot" />
               <span>TUNER SELECTOR</span>
             </div>
-            <h1 class="tuner-title">Эфирные радиопотоки</h1>
+            <h1 class="tuner-title">{title}</h1>
             <p class="tuner-subtitle">{subtitle}</p>
           </div>
 
@@ -71,6 +86,31 @@ export function StationsView({
         </div>
       </div>
 
+      {/* Prominent Tuner Search Bar */}
+      <div class="deck-panel tuner-search-deck">
+        <div class="tuner-search-wrap">
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            class="tuner-search-input"
+            value={searchQuery}
+            onInput={(e) => onSearchChange?.(e.currentTarget.value)}
+            placeholder="Поиск радиостанции, жанра, тега или стиля..."
+            aria-label="Поиск станции, жанра или потока"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              class="search-clear-btn"
+              onClick={() => onSearchChange?.("")}
+              aria-label="Очистить поиск"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Loading state */}
       {loading && (
         <div class="deck-panel empty-deck" role="status">
@@ -81,8 +121,20 @@ export function StationsView({
       {/* Empty state */}
       {!loading && stations.length === 0 && (
         <div class="deck-panel empty-deck">
-          <p class="empty-title">Станций не найдено</p>
-          <p class="empty-hint">Попробуйте изменить поисковый запрос или выбрать другой фильтр жанра.</p>
+          <p class="empty-title">
+            {activeTab === "favorites"
+              ? "В избранном пока нет станций"
+              : activeTab === "history"
+              ? "История прослушивания пока пуста"
+              : "Станций не найдено"}
+          </p>
+          <p class="empty-hint">
+            {activeTab === "favorites"
+              ? "Нажмите звёздочку ★ на карточке любой радиостанции, чтобы сохранить её в избранное."
+              : activeTab === "history"
+              ? "Включите любую станцию в каталоге, и она автоматически появится в вашей истории."
+              : "Попробуйте изменить поисковый запрос или выбрать другой фильтр жанра."}
+          </p>
         </div>
       )}
 
@@ -99,88 +151,99 @@ export function StationsView({
               : "192 KBPS";
 
             return (
-              <article
+              <div
                 key={station.id}
                 class={`deck-panel station-card ${isCurrent ? "deck-panel-active" : ""}`}
+                onClick={() => onPlayStation(station)}
               >
-                <div class="card-top-row">
-                  <div class="station-meta-wrap">
-                    <div class="station-thumb">
-                      <span class="station-thumb-placeholder" aria-hidden="true">◉</span>
-                      {station.favicon_url && (
-                        <img
-                          class="station-thumb-img"
-                          src={station.favicon_url}
-                          alt=""
-                          onError={(e) => {
-                            e.currentTarget.hidden = true;
-                          }}
-                        />
-                      )}
-                      {isCurrent && isPlaying && (
-                        <span class="station-thumb-badge">PLAYING</span>
-                      )}
-                    </div>
-                    <div class="station-names">
-                      <h3 class="station-name-title" title={station.name}>
-                        {station.name}
-                      </h3>
-                      <div class="station-badges">
-                        <span class="bitrate-badge">{bitrateLabel}</span>
-                        <span class="genre-text">
-                          {station.tags.slice(0, 2).join(", ") || station.language || "Radio"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {onToggleFavorite && (
-                    <button
-                      type="button"
-                      class={`star-btn ${isFav ? "active" : ""}`}
-                      onClick={() => onToggleFavorite(station.id)}
-                      title={isFav ? "Удалить из избранного" : "Добавить в избранное"}
-                      aria-label={isFav ? "В избранном" : "В избранное"}
+                <div class="station-card-top">
+                  <div class="station-icon-wrap">
+                    {station.favicon_url ? (
+                      <img
+                        src={station.favicon_url}
+                        alt=""
+                        class="station-icon"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = "grid";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      class="station-icon-fallback"
+                      style={{ display: station.favicon_url ? "none" : "grid" }}
                     >
-                      {isFav ? "★" : "☆"}
-                    </button>
-                  )}
-                </div>
-
-                <div class="card-bottom-row">
-                  <div class="now-playing-wrap">
-                    <span class="now-playing-label">NOW PLAYING</span>
-                    <span class="now-playing-title truncate">
-                      {isCurrent && currentTrackTitle
-                        ? currentTrackTitle
-                        : station.tags.length > 0
-                        ? station.tags.join(" · ")
-                        : "Прямой эфир"}
-                    </span>
+                      {station.name.slice(0, 2).toUpperCase()}
+                    </div>
                   </div>
 
-                  <div class="card-action">
-                    {isCurrent && isPlaying ? (
-                      <div class="vu-equalizer" aria-label="Воспроизводится">
-                        <span class="vu-bar" />
-                        <span class="vu-bar" />
-                        <span class="vu-bar" />
-                        <span class="vu-bar" />
-                      </div>
-                    ) : (
+                  <div class="station-top-meta">
+                    <span class="bitrate-badge">{bitrateLabel}</span>
+                    {onToggleFavorite && (
                       <button
                         type="button"
-                        class="play-card-btn"
-                        onClick={() => onPlayStation(station)}
-                        title={`Включить ${station.name}`}
-                        aria-label={`Включить ${station.name}`}
+                        class={`star-btn ${isFav ? "active" : ""}`}
+                        aria-label={isFav ? "Удалить из избранного" : "В избранное"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleFavorite(station.id);
+                        }}
                       >
-                        ▶
+                        {isFav ? "★" : "☆"}
                       </button>
                     )}
                   </div>
                 </div>
-              </article>
+
+                <div class="station-card-body">
+                  <div class="station-title-row">
+                    <h2 class="station-name truncate" title={station.name}>
+                      {station.name}
+                    </h2>
+                  </div>
+
+                  <div class="station-tags-row">
+                    {station.tags.slice(0, 3).map((tag) => (
+                      <span key={tag} class="station-tag">
+                        #{tag}
+                      </span>
+                    ))}
+                    {station.country_code && (
+                      <span class="station-tag country-tag">{station.country_code}</span>
+                    )}
+                  </div>
+
+                  {isCurrent && isPlaying && (
+                    <div class="live-track-preview">
+                      <div class="vu-equalizer">
+                        <span class="vu-bar" />
+                        <span class="vu-bar" />
+                        <span class="vu-bar" />
+                        <span class="vu-bar" />
+                      </div>
+                      <span class="live-track-text truncate" title={currentTrackTitle}>
+                        {currentTrackTitle || "Прямой эфир"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div class="station-card-footer">
+                  <button
+                    type="button"
+                    class={`card-play-btn ${isCurrent && isPlaying ? "playing" : ""}`}
+                    aria-label={isCurrent && isPlaying ? "Пауза" : "Слушать поток"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPlayStation(station);
+                    }}
+                  >
+                    {isCurrent && isPlaying ? "⏸ Пауза" : "▶ Слушать"}
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -188,46 +251,64 @@ export function StationsView({
 
       {/* Table view */}
       {!loading && stations.length > 0 && viewMode === "table" && (
-        <div class="deck-panel table-panel">
-          <table class="stations-table" aria-label="Таблица радиостанций">
+        <div class="deck-panel stations-table-deck">
+          <table class="stations-table" aria-label="Список радиостанций">
             <thead>
               <tr>
+                <th style={{ width: "40px" }} />
                 <th>Станция</th>
                 <th>Жанр / Теги</th>
-                <th>Качество</th>
-                <th>Действия</th>
+                <th>Формат</th>
+                <th>Страна</th>
+                <th style={{ width: "90px" }} />
               </tr>
             </thead>
             <tbody>
               {stations.map((station) => {
                 const isCurrent = activeStationId === station.id;
                 const isFav = favorites.includes(station.id);
+                const formatLabel = station.codec ? `${station.codec} ${station.bitrate_kbps ? station.bitrate_kbps + 'k' : ''}` : "MP3";
+
                 return (
-                  <tr key={station.id} class={isCurrent ? "row-active" : ""}>
-                    <td class="table-station-col">
-                      <div class="table-station-cell">
-                        <span class="station-thumb-placeholder small" aria-hidden="true">◉</span>
+                  <tr
+                    key={station.id}
+                    class={`station-table-row ${isCurrent ? "table-row-active" : ""}`}
+                    onClick={() => onPlayStation(station)}
+                  >
+                    <td>
+                      {isCurrent && isPlaying ? (
+                        <div class="vu-equalizer">
+                          <span class="vu-bar" />
+                          <span class="vu-bar" />
+                          <span class="vu-bar" />
+                          <span class="vu-bar" />
+                        </div>
+                      ) : (
+                        <span class="table-play-icon">▶</span>
+                      )}
+                    </td>
+                    <td>
+                      <div class="table-station-info">
                         <strong>{station.name}</strong>
+                        {isCurrent && currentTrackTitle && (
+                          <small class="table-track truncate">{currentTrackTitle}</small>
+                        )}
                       </div>
                     </td>
-                    <td>{station.tags.slice(0, 3).join(", ") || "—"}</td>
                     <td>
-                      <span class="bitrate-badge">
-                        {station.bitrate_kbps ? `${station.bitrate_kbps}k` : "192k"}
-                      </span>
+                      <div class="table-tags">
+                        {station.tags.slice(0, 2).map((t) => (
+                          <span key={t} class="station-tag">#{t}</span>
+                        ))}
+                      </div>
                     </td>
-                    <td class="table-actions-col">
-                      <button
-                        type="button"
-                        class="secondary small-btn"
-                        onClick={() => onPlayStation(station)}
-                      >
-                        {isCurrent && isPlaying ? "Пауза" : "Играть"}
-                      </button>
+                    <td><span class="bitrate-badge">{formatLabel}</span></td>
+                    <td><span class="country-cell">{station.country_code || "—"}</span></td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       {onToggleFavorite && (
                         <button
                           type="button"
-                          class="link-button star-table-btn"
+                          class={`star-btn ${isFav ? "active" : ""}`}
                           onClick={() => onToggleFavorite(station.id)}
                         >
                           {isFav ? "★" : "☆"}

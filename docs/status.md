@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-01
 
+## WEB-UI-005: search limit 422 fix, tuner search deck, and cabinet navigation wiring (2026-10-01)
+
+Resolved catalog loading failures, added in-deck tuner search input, and wired left console tab navigation:
+- Search limit fix: `POST /api/v1/search` strictly enforces `limit <= 20`. `AccountCentre.tsx` was requesting `limit: 24`, which was rejected with HTTP 422 Unprocessable Entity and caught silently, resulting in an empty station list on initial load and preset clicks. Fixed to `limit: 20`.
+- Tuner search deck: added a prominent search bar directly inside `StationsView.tsx` with a clear button (✕) and responsive styling, giving users an immediate, intuitive place to search right above the stations grid.
+- Left console tab switching: wired `activeTab` to switch center stage in `AccountCentre.tsx` between the tuner catalog (`stations`), hardware device management and Yandex Smart Home (`devices`), and playback history (`history`).
+- Local playback history: recorded played stations into `localStorage` (`rockserver_player_history`, up to 30 items) and rendered under the "История" tab.
+- Preset tag switching: clicking `#rock`, `#jazz`, `#electronic`, etc., clears any active search query and automatically resets the active tab to `stations`.
+- Verification: verified through Playwright headless browser against the staging API (initial 20 stations loaded, `#jazz` loaded 20 stations, search query returned 20 stations, devices tab displayed hardware cards). All 15/15 `pnpm test` UX regression tests passed, Vite build clean, `cargo fmt --check`, strict Clippy, and `cargo test` all green.
+- Next step: commit, push, and deploy to staging.
+
 ## DEPLOY: Cyber-Tuner web cabinet and radio player deployed to staging (2026-10-01)
 
 Release commit `2624b6b` (modernized Cyber-Tuner / Studio Deck web cabinet, in-browser radio stream playback, real-time SSE ICY metadata synchronization, and modular architectural decomposition) was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
