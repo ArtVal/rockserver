@@ -1,5 +1,15 @@
 # Task log
 
+## 2026-10-01 — DEPLOY: Cyber-Tuner navigation, search deck, and limit 422 fix deployed to staging
+
+- Goal: build, deploy, and verify release commit `bf11261` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-bf112619acdefa3049f51b789b84ed50e743b3bd` (`sha256:97713455517882ea308d0635493125b7dc7b57719f3121fbac1dbffd5b9b001c`) and `rockserver-caddy:sha-bf112619acdefa3049f51b789b84ed50e743b3bd`.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified remote execution: worker PID 951939 completed with `status=succeeded`, remote readiness probe passed (`readiness=passed`).
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `bf11261`.
+
 ## 2026-10-01 — WEB-UI-005: search limit 422 fix, tuner search deck, and cabinet navigation wiring
 
 - Goal: fix empty station catalog on initial load and preset tag clicks, provide a dedicated tuner search input, and wire left console navigation tabs.

@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-01
 
+## DEPLOY: Cyber-Tuner navigation, search deck, and limit 422 fix deployed to staging (2026-10-01)
+
+Release commit `bf11261` (search limit 422 fix, tuner search deck, cabinet navigation wiring, and history tracking) was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
+- Images built:
+  - `rockserver:sha-bf112619acdefa3049f51b789b84ed50e743b3bd` (`sha256:97713455517882ea308d0635493125b7dc7b57719f3121fbac1dbffd5b9b001c`)
+  - `rockserver-caddy:sha-bf112619acdefa3049f51b789b84ed50e743b3bd`
+- Remote deploy status: `status=succeeded` (`log=/home/rockserver/logs/deploy-bf112619acdefa3049f51b789b84ed50e743b3bd.log`).
+- Remote readiness probe verified: `readiness=passed`.
+- Current working state: stations render immediately upon load, genre frequency presets `#rock`, `#jazz`, `#synthwave`, etc. update the grid, direct in-tuner search queries the catalog, and the left console navigation tabs switch views properly.
+
 ## WEB-UI-005: search limit 422 fix, tuner search deck, and cabinet navigation wiring (2026-10-01)
 
 Resolved catalog loading failures, added in-deck tuner search input, and wired left console tab navigation:
