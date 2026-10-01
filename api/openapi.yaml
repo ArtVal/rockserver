@@ -252,6 +252,64 @@ paths:
         "429": { description: Relay capacity is exhausted; Retry-After is provided. }
         "502": { description: Catalog upstream URL is unsafe, invalid, or unavailable. }
         "503": { description: Catalog storage is unavailable. }
+  /api/v1/stations/{station_id}/now-playing:
+    get:
+      operationId: getStationNowPlaying
+      summary: Read the last locally observed ICY StreamTitle
+      security: [{ RockserverBrowserCookie: [] }, { RockserverBearer: [] }]
+      description: >-
+        Uses the same current browser or native device session and catalog-station checks as
+        the audio relay. This read never opens an upstream. A missing snapshot has null
+        rawTitle and updatedAt; a stale snapshot retains both with state stale. Snapshots are
+        process-local and best effort while listeners have separate upstreams. No query
+        parameters are accepted.
+      parameters:
+        - name: station_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        "200":
+          description: Current station metadata snapshot.
+          headers:
+            Cache-Control: { schema: { type: string, example: no-store } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StationNowPlaying" }
+        "400": { description: Invalid station identifier or query parameters. }
+        "401": { description: Current browser or native device session is required. }
+        "404": { description: Station or active primary stream is unavailable. }
+        "503": { description: Catalog storage is unavailable. }
+  /api/v1/stations/{station_id}/events:
+    get:
+      operationId: watchStationNowPlaying
+      summary: Subscribe to station ICY title snapshots
+      security: [{ RockserverBrowserCookie: [] }, { RockserverBearer: [] }]
+      description: >-
+        Sends a snapshot event immediately, then on observed StreamTitle changes. Event data
+        uses StationNowPlaying JSON. The connection ends after one hour; reconnect to receive
+        the latest snapshot and reauthorize. Slow subscribers are disconnected when their
+        bounded queue fills; a receiver that misses broadcast events receives the latest
+        snapshot. At most 64 subscribers and two queued events per subscriber are allowed.
+        This endpoint never opens an upstream. No query parameters are accepted.
+      parameters:
+        - name: station_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        "200":
+          description: Server-sent snapshot events.
+          headers:
+            Cache-Control: { schema: { type: string, example: no-store } }
+          content:
+            text/event-stream:
+              schema: { type: string, description: "event: snapshot with StationNowPlaying JSON data" }
+        "400": { description: Invalid station identifier or query parameters. }
+        "401": { description: Current browser or native device session is required. }
+        "404": { description: Station or active primary stream is unavailable. }
+        "429": { description: Subscriber capacity is exhausted; Retry-After is provided. }
+        "503": { description: Catalog storage is unavailable. }
   /api/v1/admin/devices:
     get:
       operationId: listAdminDevices
@@ -1453,6 +1511,15 @@ components:
             request_id: req_01AUTH401
             details: {}
   schemas:
+    StationNowPlaying:
+      type: object
+      additionalProperties: false
+      required: [stationId, rawTitle, updatedAt, state]
+      properties:
+        stationId: { type: string, minLength: 1, maxLength: 128 }
+        rawTitle: { type: [string, "null"], maxLength: 512 }
+        updatedAt: { type: [string, "null"], format: date-time }
+        state: { type: string, enum: [missing, fresh, stale] }
     AdminLoginRequest:
       type: object
       additionalProperties: false

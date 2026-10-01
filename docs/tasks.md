@@ -1,5 +1,12 @@
 # Task log
 
+## 2026-10-01 — RR-002: station now-playing API and SSE
+
+- Goal: expose RR-001 ICY title snapshots to Web UI through authorized reads and events.
+- Scope: added `/now-playing` and `/events` with shared session/catalog access, explicit missing/fresh/stale snapshots, initial and update SSE events, bounded subscribers and queues, disconnect/lifetime handling, OpenAPI contract, local fake-upstream and subscription checks. Audio and native in-stream ICY remain unchanged.
+- Checks: local targeted metadata tests, `cargo fmt --check`, strict all-target/all-feature Clippy, and `cargo test` passed. Disposable-PostgreSQL and live-provider tests remain ignored without configured environments.
+- Status: implementation complete locally; RR-003 clients and RR-006 shared upstream remain separate stages.
+
 ## 2026-10-01 — RR-001: authenticated radio stream relay
 
 - Goal: serve catalog audio and ICY metadata only to current browser or native-device sessions.

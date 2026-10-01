@@ -75,6 +75,14 @@ pub(super) fn build_router(state: AppState) -> Router {
             "/api/v1/stations/{station_id}/stream",
             axum::routing::get(relay::stream),
         )
+        .route(
+            "/api/v1/stations/{station_id}/now-playing",
+            axum::routing::get(relay::now_playing),
+        )
+        .route(
+            "/api/v1/stations/{station_id}/events",
+            axum::routing::get(relay::events),
+        )
         .route("/api/v1/search", axum::routing::post(search::public_search))
         .route(
             "/api/v1/voice/command",

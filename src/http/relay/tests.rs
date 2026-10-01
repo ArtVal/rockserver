@@ -19,6 +19,9 @@ use tokio::{
 use tower::ServiceExt;
 use uuid::Uuid;
 
+#[path = "tests/metadata.rs"]
+mod metadata;
+
 struct Catalog(String);
 
 #[async_trait]

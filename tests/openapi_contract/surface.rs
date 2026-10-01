@@ -30,6 +30,8 @@ fn openapi_contract_is_parseable_and_has_required_surface() {
         "/api/v1/admin/stations/{station_id}/icon",
         "/api/v1/stations/{station_id}/icon",
         "/api/v1/stations/{station_id}/stream",
+        "/api/v1/stations/{station_id}/now-playing",
+        "/api/v1/stations/{station_id}/events",
         "/api/v1/auth/device-session",
         "/api/v1/auth/browser-logout",
         "/api/v1/browser/account",

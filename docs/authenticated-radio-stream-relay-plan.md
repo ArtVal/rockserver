@@ -1,6 +1,6 @@
 # Authenticated radio stream relay — план реализации
 
-**Статус:** RR-001 реализован локально и прошёл обязательные проверки; RR-002—RR-006 остаются планом.
+**Статус:** RR-001 реализован локально и прошёл обязательные проверки; RR-002 реализован локально, итоговые проверки указаны в `docs/status.md`; RR-003—RR-006 остаются планом.
 
 ## Цель и границы
 
@@ -24,7 +24,7 @@ Radio station -> RockServer (catalog lookup, safe upstream, ICY parser)
 
 ## Now-playing и события
 
-Отдельный канал нужен прежде всего Web UI: `<audio>` воспроизводит звук, но не отдаёт странице `StreamTitle`. Планируемый `GET /api/v1/stations/{station_id}/now-playing` возвращает последний snapshot с `stationId`, `rawTitle`, nullable `artist`/`title`, `updatedAt` и признаком свежести/отсутствия. Планируемый `GET /api/v1/stations/{station_id}/events` передаёт начальный snapshot и изменения через SSE; WebSocket для односторонних обновлений не нужен. Оба endpoint используют те же session/ownership правила и лимиты, что stream. Native плеерам отдельное metadata-соединение не требуется, если они читают ICY из relay stream. В v1 с отдельными upstream на клиента snapshot станции — best effort: разные upstream могут быть смещены во времени; RR-006 делает источник единым.
+Отдельный канал нужен прежде всего Web UI: `<audio>` воспроизводит звук, но не отдаёт странице `StreamTitle`. `GET /api/v1/stations/{station_id}/now-playing` возвращает последний snapshot с `stationId`, `rawTitle`, `updatedAt` и состоянием `missing`/`fresh`/`stale`. `GET /api/v1/stations/{station_id}/events` передаёт начальный snapshot и изменения через SSE; WebSocket для односторонних обновлений не нужен. Оба endpoint используют те же session/ownership правила, что stream. Native плеерам отдельное metadata-соединение не требуется, если они читают ICY из relay stream. В v1 с отдельными upstream на клиента snapshot станции — best effort: разные upstream могут быть смещены во времени; RR-006 делает источник единым.
 
 ## Этапы для отдельных задач Codex
 
@@ -56,4 +56,4 @@ Radio station -> RockServer (catalog lookup, safe upstream, ICY parser)
 
 ## Передача задачи
 
-Для каждого RR-этапа передавать в Codex только его секцию и зависимости, просить сначала сверить фактический код и затем реализовать критерии готовности с детерминированными локальными проверками. Фактическое состояние и результаты проверок фиксируются в `docs/status.md`. Следующий шаг — RR-002.
+Для каждого RR-этапа передавать в Codex только его секцию и зависимости, просить сначала сверить фактический код и затем реализовать критерии готовности с детерминированными локальными проверками. Фактическое состояние и результаты проверок фиксируются в `docs/status.md`. Следующий шаг — RR-003.

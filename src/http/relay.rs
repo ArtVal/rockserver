@@ -2,8 +2,12 @@
 
 #[path = "relay/icy.rs"]
 mod icy;
+#[path = "relay/metadata.rs"]
+mod metadata;
 #[path = "relay/security.rs"]
 mod security;
+
+pub(super) use metadata::{events, now_playing};
 
 use std::{
     collections::HashMap,
@@ -20,7 +24,7 @@ use axum::{
 use reqwest::Url;
 use serde_json::json;
 use tokio::{
-    sync::{Semaphore, mpsc},
+    sync::{Semaphore, broadcast, mpsc},
     time::timeout,
 };
 use tokio_stream::wrappers::ReceiverStream;
@@ -43,25 +47,29 @@ const STREAM_LIFETIME: Duration = Duration::from_secs(60 * 60);
 /// Latest bounded title observed from an active relay connection.
 #[derive(Clone)]
 pub(crate) struct TitleSnapshot {
-    #[allow(dead_code)]
-    // Read by the RR-002 metadata endpoint; kept now to retain observed titles.
     pub(crate) raw_title: String,
     pub(crate) observed_at: Instant,
+    pub(crate) updated_at: String,
 }
 
-/// Process-local relay capacity and best-effort title snapshots for RR-002.
+/// Process-local relay capacity and best-effort title snapshots and notifications.
 #[derive(Clone)]
 pub(crate) struct RelayState {
     slots: Arc<Semaphore>,
     titles: Arc<Mutex<HashMap<String, TitleSnapshot>>>,
+    subscribers: Arc<Semaphore>,
+    changes: broadcast::Sender<(String, TitleSnapshot)>,
     allow_loopback: bool,
 }
 
 impl Default for RelayState {
     fn default() -> Self {
+        let (changes, _) = broadcast::channel(64);
         Self {
             slots: Arc::new(Semaphore::new(MAX_CONNECTIONS)),
             titles: Arc::new(Mutex::new(HashMap::new())),
+            subscribers: Arc::new(Semaphore::new(64)),
+            changes,
             allow_loopback: false,
         }
     }
@@ -79,74 +87,11 @@ pub(super) async fn stream(
     headers: HeaderMap,
 ) -> Response {
     let id = request_id(&headers);
-    if uri.query().is_some() {
-        return failure(
-            StatusCode::BAD_REQUEST,
-            "invalid_query",
-            "Stream URL query parameters are not accepted.",
-            &id,
-        );
-    }
-    if station_id.is_empty() || station_id.len() > 128 {
-        return failure(
-            StatusCode::BAD_REQUEST,
-            "invalid_station_id",
-            "Station identifier is invalid.",
-            &id,
-        );
-    }
-    // A bearer takes precedence; a malformed bearer cannot silently fall back to a cookie.
-    let authorized = if headers.contains_key(header::AUTHORIZATION) {
-        match state.control_session_resolver.as_ref() {
-            Some(resolver) => authenticate_control_ingress(&headers, resolver.as_ref())
-                .await
-                .is_ok(),
-            None => false,
-        }
-    } else if let (Some(cookie), Some(store)) = (
-        cookie_value(&headers, "rockserver_browser"),
-        state.account_store.as_ref(),
-    ) {
-        if !trusted_proxy_header_matches(&headers, state.trusted_proxy_token.as_deref()) {
-            false
-        } else {
-            matches!(
-                store.browser_session_user(&token_hash(cookie)).await,
-                Ok(Some(_))
-            )
-        }
-    } else {
-        false
+    let url = match station_access(&state, &station_id, &uri, &headers, &id).await {
+        Ok(url) => url,
+        Err(response) => return response,
     };
-    if !authorized {
-        return failure(
-            StatusCode::UNAUTHORIZED,
-            "authentication_required",
-            "A current user or device session is required.",
-            &id,
-        );
-    }
-
-    let station = match state.search_service.public_station(&station_id).await {
-        Ok(Some(station)) => station,
-        Ok(None) => {
-            return failure(
-                StatusCode::NOT_FOUND,
-                "station_not_found",
-                "Station is unavailable.",
-                &id,
-            );
-        }
-        Err(_) => {
-            return failure(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "catalog_unavailable",
-                "Catalog is unavailable.",
-                &id,
-            );
-        }
-    };
-    let Ok(url) = Url::parse(&station.stream_url) else {
+    let Ok(url) = Url::parse(&url) else {
         return failure(
             StatusCode::BAD_GATEWAY,
             "invalid_upstream",
@@ -191,13 +136,13 @@ pub(super) async fn stream(
         .cloned()
         .unwrap_or_else(|| HeaderValue::from_static("application/octet-stream"));
     let (sender, receiver) = mpsc::channel::<Result<Bytes, std::io::Error>>(2);
-    let titles = Arc::clone(&state.relay.titles);
+    let relay = state.relay.clone();
     tokio::spawn(async move {
         let _permit = permit;
         tokio::select! {
             _ = sender.closed() => {},
             _ = tokio::time::sleep(STREAM_LIFETIME) => {},
-            _ = pump(icy::Reader::new(upstream), metaint, wants_icy, &station_id, titles, sender.clone()) => {},
+            _ = pump(icy::Reader::new(upstream), metaint, wants_icy, &station_id, relay, sender.clone()) => {},
         }
     });
     let mut response = with_request_id(
@@ -221,6 +166,84 @@ pub(super) async fn stream(
         );
     }
     response
+}
+
+// Shared gate: neither metadata endpoint nor audio opens an upstream before session/catalog checks.
+async fn station_access(
+    state: &AppState,
+    station_id: &str,
+    uri: &Uri,
+    headers: &HeaderMap,
+    id: &str,
+) -> Result<String, Response> {
+    if uri.query().is_some() {
+        return Err(failure(
+            StatusCode::BAD_REQUEST,
+            "invalid_query",
+            "Query parameters are not accepted.",
+            id,
+        ));
+    }
+    if station_id.is_empty() || station_id.len() > 128 {
+        return Err(failure(
+            StatusCode::BAD_REQUEST,
+            "invalid_station_id",
+            "Station identifier is invalid.",
+            id,
+        ));
+    }
+    // A bearer takes precedence; a malformed bearer cannot silently fall back to a cookie.
+    let authorized = if headers.contains_key(header::AUTHORIZATION) {
+        match state.control_session_resolver.as_ref() {
+            Some(resolver) => authenticate_control_ingress(headers, resolver.as_ref())
+                .await
+                .is_ok(),
+            None => false,
+        }
+    } else if let (Some(cookie), Some(store)) = (
+        cookie_value(headers, "rockserver_browser"),
+        state.account_store.as_ref(),
+    ) {
+        if !trusted_proxy_header_matches(headers, state.trusted_proxy_token.as_deref()) {
+            false
+        } else {
+            matches!(
+                store.browser_session_user(&token_hash(cookie)).await,
+                Ok(Some(_))
+            )
+        }
+    } else {
+        false
+    };
+    if !authorized {
+        return Err(failure(
+            StatusCode::UNAUTHORIZED,
+            "authentication_required",
+            "A current user or device session is required.",
+            id,
+        ));
+    }
+
+    let station = match state.search_service.public_station(station_id).await {
+        Ok(Some(station)) => station,
+        Ok(None) => {
+            return Err(failure(
+                StatusCode::NOT_FOUND,
+                "station_not_found",
+                "Station is unavailable.",
+                id,
+            ));
+        }
+        Err(_) => {
+            return Err(failure(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "catalog_unavailable",
+                "Catalog is unavailable.",
+                id,
+            ));
+        }
+    };
+    Ok(station.stream_url)
 }
 
 // Each hop gets a fresh pinned client; a redirect never inherits trust from its parent.
@@ -267,7 +290,7 @@ async fn pump(
     metaint: Option<usize>,
     wants_icy: bool,
     station_id: &str,
-    titles: Arc<Mutex<HashMap<String, TitleSnapshot>>>,
+    relay: RelayState,
     sender: mpsc::Sender<Result<Bytes, std::io::Error>>,
 ) {
     let mut remaining = metaint.unwrap_or(usize::MAX);
@@ -292,7 +315,14 @@ async fn pump(
             return;
         };
         if let Some(raw_title) = icy::raw_title(&block) {
-            let mut snapshots = titles.lock().expect("title mutex not poisoned");
+            let snapshot = TitleSnapshot {
+                raw_title,
+                observed_at: Instant::now(),
+                updated_at: time::OffsetDateTime::now_utc()
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .expect("current time is representable"),
+            };
+            let mut snapshots = relay.titles.lock().expect("title mutex not poisoned");
             if snapshots.len() >= 1024
                 && !snapshots.contains_key(station_id)
                 && let Some(oldest) = snapshots
@@ -302,13 +332,9 @@ async fn pump(
             {
                 snapshots.remove(&oldest);
             }
-            snapshots.insert(
-                station_id.to_owned(),
-                TitleSnapshot {
-                    raw_title,
-                    observed_at: Instant::now(),
-                },
-            );
+            snapshots.insert(station_id.to_owned(), snapshot.clone());
+            drop(snapshots);
+            let _ = relay.changes.send((station_id.to_owned(), snapshot));
         }
         if wants_icy && sender.send(Ok(Bytes::from(length))).await.is_ok() && !block.is_empty() {
             if sender.send(Ok(Bytes::from(block))).await.is_err() {
