@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-02
 
+## WEB-UI-008: Live track metadata synchronization in active station card (2026-10-02)
+
+Resolved active station card showing genre tags instead of song metadata and disappearing on pause:
+- Track title synchronization: removed fallback that set `trackTitle` to station genre tags (`station.tags.slice(0, 2).join(" · ")`) on playback start in `AccountCentre.tsx`; set clean loading indicator `Подключение к эфиру…` until live ICY metadata is received.
+- Persistent active card display: updated `.live-track-preview` in `StationsView.tsx` (grid and table views) to stay rendered whenever a station is active (`isCurrent`), showing animated VU equalizer when playing and a paused indicator (`⏸`) when playback is stopped.
+- Ellipsis and styling: styled `.live-track-preview.paused` and ensured text overflow ellipsis with tooltip `title` so long song titles do not wrap or deform card layouts.
+- Verification: `pnpm test` (all 15/15 tests passing), `pnpm run build` clean, `cargo fmt --check`, strict Clippy, and `cargo test` all green.
+- Next step: deploy release commit to staging and verify live endpoint.
+
 ## DEPLOY: Server-side account sync for favorites and playback history deployed to staging (2026-10-02)
 
 Release commit `b3c0d1b` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:

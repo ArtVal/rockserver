@@ -248,16 +248,20 @@ export function StationsView({
                     )}
                   </div>
 
-                  {isCurrent && isPlaying && (
-                    <div class="live-track-preview">
-                      <div class="vu-equalizer">
-                        <span class="vu-bar" />
-                        <span class="vu-bar" />
-                        <span class="vu-bar" />
-                        <span class="vu-bar" />
-                      </div>
-                      <span class="live-track-text truncate" title={currentTrackTitle}>
-                        {currentTrackTitle || "Прямой эфир"}
+                  {isCurrent && (
+                    <div class={`live-track-preview ${isPlaying ? "playing" : "paused"}`}>
+                      {isPlaying ? (
+                        <div class="vu-equalizer">
+                          <span class="vu-bar" />
+                          <span class="vu-bar" />
+                          <span class="vu-bar" />
+                          <span class="vu-bar" />
+                        </div>
+                      ) : (
+                        <span class="track-paused-icon" aria-hidden="true">⏸</span>
+                      )}
+                      <span class="live-track-text truncate" title={currentTrackTitle || "Прямой эфир"}>
+                        {currentTrackTitle || (isPlaying ? "Прямой эфир" : "Пауза")}
                       </span>
                     </div>
                   )}
@@ -341,8 +345,11 @@ export function StationsView({
                           </div>
                           <strong>{station.name}</strong>
                         </div>
-                        {isCurrent && currentTrackTitle && (
-                          <small class="table-track truncate">{currentTrackTitle}</small>
+                        {isCurrent && (
+                          <small class="table-track truncate">
+                            {isPlaying ? "▶ " : "⏸ "}
+                            {currentTrackTitle || (isPlaying ? "Прямой эфир" : "Пауза")}
+                          </small>
                         )}
                       </div>
                     </td>

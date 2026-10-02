@@ -1,5 +1,20 @@
 # Task log
 
+## 2026-10-02 — WEB-UI-008: live track metadata synchronization in active station card
+
+- Goal: synchronize live track metadata between the bottom player deck and the active station card, replacing genre tags with real song metadata and preventing the track metadata block from disappearing when paused.
+- Scope:
+  - `web/src/components/AccountCentre.tsx`: updated `handlePlayStation` to initialize `trackTitle` with `"Подключение к эфиру…"` instead of genre tags fallback (`station.tags.slice(0, 2).join(" · ")`).
+  - `web/src/components/StationsView.tsx`: updated `.live-track-preview` in grid view and table view to render whenever `isCurrent` is true. When playing, renders animated VU equalizer; when paused, renders `⏸` paused indicator and preserves the track title.
+  - `web/src/style.css`: added styles for `.live-track-preview.paused`, `.track-paused-icon`, and enforced text overflow ellipsis with tooltip `title`.
+- Checks:
+  - `pnpm test`: passed all 15/15 tests.
+  - `pnpm run build`: passed clean.
+  - `cargo fmt --check`: passed.
+  - `cargo clippy --all-targets --all-features -- -D warnings`: passed with 0 warnings.
+  - `cargo test --lib`: passed all 195 tests.
+- Status: **completed**.
+
 ## 2026-10-02 — DEPLOY: Server-side account sync for favorites and playback history deployed to staging
 
 - Goal: build, deploy, and verify release commit `b3c0d1b` on the staging VPS via `deploy/ops-001-d.ps1`.

@@ -402,7 +402,22 @@ dd { margin: .15rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
   background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: 6px; margin-top: 2px;
 }
-.live-track-text { font-size: .72rem; color: var(--accent-amber); font-weight: 600; }
+.live-track-preview.paused {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.live-track-preview.paused .live-track-text {
+  color: var(--text-secondary);
+}
+.track-paused-icon {
+  font-size: .65rem;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.live-track-text {
+  font-size: .72rem; color: var(--accent-amber); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .station-card-footer {
   margin-top: auto; padding-top: .75rem; border-top: 1px solid rgba(255, 255, 255, 0.06);

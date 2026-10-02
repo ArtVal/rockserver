@@ -207,7 +207,7 @@ export function AccountCentre({
     } else {
       setCurrentStation(station);
       setIsPlaying(true);
-      setTrackTitle(station.tags.slice(0, 2).join(" · ") || "Прямой эфир");
+      setTrackTitle("Подключение к эфиру…");
     }
   };
 
