@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api, type BrowserAccount, type BrowserDevice, type StationItem } from "../api";
+import { usePersonalSync } from "../usePersonalSync";
 import { Header } from "./Header";
 import { SidebarNav, type NavTab } from "./SidebarNav";
 import { StationsView } from "./StationsView";
@@ -110,22 +111,13 @@ export function AccountCentre({
 
   const [stations, setStations] = useState<StationItem[]>([]);
   const [stationsLoading, setStationsLoading] = useState(false);
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("rockserver_player_favorites");
-      return stored ? (JSON.parse(stored) as string[]) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [history, setHistory] = useState<StationItem[]>(() => {
-    try {
-      const stored = localStorage.getItem("rockserver_player_history");
-      return stored ? (JSON.parse(stored) as StationItem[]) : [];
-    } catch {
-      return [];
-    }
-  });
+  const {
+    favorites,
+    favoriteStations,
+    history,
+    toggleFavorite,
+    recordPlay,
+  } = usePersonalSync(csrf);
   const [currentStation, setCurrentStation] = useState<StationItem>();
   const [isPlaying, setIsPlaying] = useState(false);
   const [trackTitle, setTrackTitle] = useState("");
@@ -199,29 +191,16 @@ export function AccountCentre({
   }, [activeSearch, selectedTag]);
 
   const handleToggleFavorite = (stationId: string) => {
-    setFavorites((prev) => {
-      const next = prev.includes(stationId)
-        ? prev.filter((id) => id !== stationId)
-        : [...prev, stationId];
-      try {
-        localStorage.setItem("rockserver_player_favorites", JSON.stringify(next));
-      } catch {
-        // ignore storage error
-      }
-      return next;
-    });
+    const stationItem =
+      stations.find((s) => s.id === stationId) ||
+      favoriteStations.find((s) => s.id === stationId) ||
+      history.find((s) => s.id === stationId) ||
+      (currentStation?.id === stationId ? currentStation : undefined);
+    toggleFavorite(stationId, stationItem);
   };
 
   const handlePlayStation = (station: StationItem) => {
-    setHistory((prev) => {
-      const next = [station, ...prev.filter((s) => s.id !== station.id)].slice(0, 30);
-      try {
-        localStorage.setItem("rockserver_player_history", JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+    recordPlay(station);
 
     if (currentStation?.id === station.id) {
       setIsPlaying(!isPlaying);
@@ -240,11 +219,21 @@ export function AccountCentre({
     }
   };
 
+  const filterBySearch = (list: StationItem[]) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.tags && s.tags.some((t) => t.toLowerCase().includes(q)))
+    );
+  };
+
   const displayedStations =
     activeTab === "favorites"
-      ? stations.filter((s) => favorites.includes(s.id))
+      ? filterBySearch(favoriteStations)
       : activeTab === "history"
-      ? history
+      ? filterBySearch(history)
       : stations;
 
   const handleNextStation = () => {

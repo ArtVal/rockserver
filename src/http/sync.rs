@@ -36,7 +36,7 @@ const SYNC_LIMIT: PublicLimit = PublicLimit {
     burst: 20,
 };
 /// Batch sync bodies legitimately exceed the default 16 KiB public cap.
-const MAX_SYNC_BODY_BYTES: usize = 256 * 1024;
+pub(super) const MAX_SYNC_BODY_BYTES: usize = 256 * 1024;
 /// Fleet-wide retention sweeps run at most once per hour per process.
 const SWEEP_INTERVAL_SECONDS: u64 = 3600;
 static LAST_RETENTION_SWEEP_UNIX: AtomicU64 = AtomicU64::new(0);
@@ -44,13 +44,13 @@ static LAST_RETENTION_SWEEP_UNIX: AtomicU64 = AtomicU64::new(0);
 /// Transport request for `POST /api/v1/sync`; both collections are optional.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SyncRequestDto {
+pub(super) struct SyncRequestDto {
     #[serde(default)]
-    since_revision: Option<u64>,
+    pub(super) since_revision: Option<u64>,
     #[serde(default)]
-    favourites: Option<SyncCollectionDto<FavouriteUpsertDto>>,
+    pub(super) favourites: Option<SyncCollectionDto<FavouriteUpsertDto>>,
     #[serde(default)]
-    history: Option<SyncCollectionDto<HistoryUpsertDto>>,
+    pub(super) history: Option<SyncCollectionDto<HistoryUpsertDto>>,
 }
 
 /// Transport shape of one collection's pushed changes.
@@ -59,9 +59,9 @@ struct SyncRequestDto {
 /// options avoid serde derive's generic-struct requirement that `U: Default`.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SyncCollectionDto<U> {
-    upserts: Option<Vec<U>>,
-    deletes: Option<Vec<RecordDeleteDto>>,
+pub(super) struct SyncCollectionDto<U> {
+    pub(super) upserts: Option<Vec<U>>,
+    pub(super) deletes: Option<Vec<RecordDeleteDto>>,
 }
 
 impl<U> Default for SyncCollectionDto<U> {
@@ -76,82 +76,82 @@ impl<U> Default for SyncCollectionDto<U> {
 /// Transport favourite upsert; timestamps stay strings until domain validation.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct FavouriteUpsertDto {
-    record_id: String,
-    station_id: String,
-    added_at: String,
-    updated_at: String,
+pub(super) struct FavouriteUpsertDto {
+    pub(super) record_id: String,
+    pub(super) station_id: String,
+    pub(super) added_at: String,
+    pub(super) updated_at: String,
 }
 
 /// Transport history upsert; timestamps stay strings until domain validation.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct HistoryUpsertDto {
-    record_id: String,
-    station_id: String,
-    started_at: String,
-    last_played_at: String,
+pub(super) struct HistoryUpsertDto {
+    pub(super) record_id: String,
+    pub(super) station_id: String,
+    pub(super) started_at: String,
+    pub(super) last_played_at: String,
     #[serde(default)]
-    ended_at: Option<String>,
+    pub(super) ended_at: Option<String>,
     #[serde(default)]
-    play_duration_ms: Option<u64>,
+    pub(super) play_duration_ms: Option<u64>,
     #[serde(default)]
-    metadata: Option<serde_json::Value>,
-    updated_at: String,
+    pub(super) metadata: Option<serde_json::Value>,
+    pub(super) updated_at: String,
 }
 
 /// Transport deletion marker; `updated_at` arms the tombstone for last-writer-wins.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RecordDeleteDto {
-    record_id: String,
-    updated_at: String,
+pub(super) struct RecordDeleteDto {
+    pub(super) record_id: String,
+    pub(super) updated_at: String,
 }
 
 /// Transport response with the new cursor and both collections' deltas.
 #[derive(Serialize)]
-struct SyncResponseDto {
-    server_revision: u64,
-    server_time: String,
-    favourites: SyncCollectionResponseDto<FavouriteRecordDto>,
-    history: SyncCollectionResponseDto<HistoryRecordDto>,
+pub(super) struct SyncResponseDto {
+    pub(super) server_revision: u64,
+    pub(super) server_time: String,
+    pub(super) favourites: SyncCollectionResponseDto<FavouriteRecordDto>,
+    pub(super) history: SyncCollectionResponseDto<HistoryRecordDto>,
 }
 
 /// Transport shape of one collection's returned records.
 #[derive(Serialize)]
-struct SyncCollectionResponseDto<R> {
-    records: Vec<R>,
+pub(super) struct SyncCollectionResponseDto<R> {
+    pub(super) records: Vec<R>,
 }
 
 /// Transport favourite projection; tombstones omit station and carry `deleted_at`.
 #[derive(Serialize)]
-struct FavouriteRecordDto {
-    record_id: String,
+pub(super) struct FavouriteRecordDto {
+    pub(super) record_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    station_id: Option<String>,
-    added_at: String,
-    updated_at: String,
+    pub(super) station_id: Option<String>,
+    pub(super) added_at: String,
+    pub(super) updated_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    deleted_at: Option<String>,
+    pub(super) deleted_at: Option<String>,
 }
 
 /// Transport history projection; tombstones omit station data and carry `deleted_at`.
 #[derive(Serialize)]
-struct HistoryRecordDto {
-    record_id: String,
+pub(super) struct HistoryRecordDto {
+    pub(super) record_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    station_id: Option<String>,
-    started_at: String,
-    last_played_at: String,
+    pub(super) station_id: Option<String>,
+    pub(super) started_at: String,
+    pub(super) last_played_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    ended_at: Option<String>,
+    pub(super) ended_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    play_duration_ms: Option<u64>,
+    pub(super) play_duration_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    metadata: Option<serde_json::Value>,
-    updated_at: String,
+    pub(super) metadata: Option<serde_json::Value>,
+    pub(super) updated_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    deleted_at: Option<String>,
+    pub(super) deleted_at: Option<String>,
 }
 
 /// Serves `POST /api/v1/sync` for account-authenticated native devices.
@@ -209,7 +209,7 @@ pub(super) async fn sync_request(
 
 /// Converts the transport request into the domain request; stores validate it against
 /// server time, this step only parses identifiers and timestamps.
-fn domain_request(payload: SyncRequestDto) -> Result<SyncRequest, PersonalDataError> {
+pub(super) fn domain_request(payload: SyncRequestDto) -> Result<SyncRequest, PersonalDataError> {
     Ok(SyncRequest {
         since_revision: payload.since_revision.unwrap_or(0),
         favourites: favourite_changes(payload.favourites)?,
@@ -336,7 +336,7 @@ fn sync_response(outcome: SyncOutcome, request_id: &str) -> Response {
 }
 
 /// Maps domain failures onto the public error envelope.
-fn sync_error_response(error: PersonalDataError, request_id: &str) -> Response {
+pub(super) fn sync_error_response(error: PersonalDataError, request_id: &str) -> Response {
     match error {
         PersonalDataError::Validation(field) => error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -373,7 +373,7 @@ fn sync_error_response(error: PersonalDataError, request_id: &str) -> Response {
 ///
 /// The compare-and-swap makes concurrent requests elect exactly one sweeper; failures only
 /// log so a sweep outage never blocks client syncs, and the next hour retries.
-async fn maybe_sweep_retention(state: &AppState) {
+pub(super) async fn maybe_sweep_retention(state: &AppState) {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_secs())

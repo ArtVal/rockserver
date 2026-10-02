@@ -1,6 +1,18 @@
 # Project status
 
-Last updated: 2026-10-01
+Last updated: 2026-10-02
+
+## PERSONAL-SYNC-WEB-001: Server-side account sync for favorites and playback history across devices (2026-10-02)
+
+Enabled bi-directional server synchronization for favorites and playback history across native devices (RockCast on Windows) and browser sessions:
+- Server endpoint: added `POST /api/v1/browser/sync` (`src/http/browser_sync.rs`) authenticated via browser session cookie (`rockserver_browser`) and CSRF header (`X-CSRF-Token`) behind the trusted proxy.
+- LWW conflict resolution: writes directly to PostgreSQL `favourite_records` and `history_records` via `personal_store.synchronize(user_id, request)`, sharing the same account user UUID across Windows and browser clients.
+- Station metadata enrichment: the server automatically resolves and attaches `PublicStationDto` metadata for all active favorites in the response, eliminating additional round-trips for the client.
+- OpenAPI contract: registered `/api/v1/browser/sync` and schemas in `api/openapi.yaml`.
+- Web client: created `web/src/usePersonalSync.ts` hook implementing LWW server synchronization, initial migration of legacy local storage favorites, optimistic updates, and background playback history recording.
+- Fixed favorites filtering bug: decoupled favorites view from the transient 20-station catalog query window in `AccountCentre.tsx`; favorites and history now display directly from synchronized state, matching the navigation counts.
+- Verification: `cargo fmt --check`, strict Clippy, `cargo test` (including openapi_contract, search_api, personal_sync_api), `pnpm test` (15/15), and `pnpm run build` all green.
+- Next step: commit changes, deploy to VPS, and verify live.
 
 ## DEPLOY: Search and device catalog rate limits increased to production parameters deployed to staging (2026-10-01)
 

@@ -451,6 +451,41 @@ paths:
               schema: { $ref: "#/components/schemas/BrowserAccount" }
         "401": { description: Browser session cookie is absent, expired, or invalid. }
         "403": { description: Request did not arrive through the trusted first-party proxy. }
+  /api/v1/browser/sync:
+    post:
+      operationId: syncBrowserPersonalData
+      summary: Synchronize favourites and history for the signed-in browser account
+      description: >-
+        Pushes client favourites and history changes and pulls the account delta for the
+        authenticated browser session. Merges changes last-writer-wins on `updated_at`.
+        Enriches active favourites with catalog station representations.
+      security:
+        - RockserverBrowserCookie: []
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 256 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonalSyncRequest" }
+      responses:
+        "200":
+          description: Changes applied; payload contains the new cursor, deltas, and station metadata for active favourites.
+          headers:
+            Cache-Control: { schema: { type: string, example: no-store } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserPersonalSyncResponse" }
+        "400": { description: Request body is not valid JSON. }
+        "401": { description: Browser session cookie is absent, expired, or invalid. }
+        "403": { description: Trusted proxy, origin, or CSRF proof is missing. }
+        "413": { description: Batch body exceeded the sync byte budget. }
+        "422": { description: Batch validation failed or a bounded collection size would be exceeded. }
+        "429": { description: The user exhausted their sync quota. }
+        "503": { description: Personal-data persistence is temporarily unavailable. }
   /api/v1/browser/yandex-home/authorize:
     post:
       operationId: beginYandexHomeAuthorization
@@ -3599,3 +3634,52 @@ components:
         metadata: { type: object }
         updated_at: { type: string, format: date-time }
         deleted_at: { type: string, format: date-time }
+    BrowserPersonalSyncResponse:
+      type: object
+      additionalProperties: false
+      required: [server_revision, server_time, favourites, history, stations]
+      properties:
+        server_revision:
+          type: integer
+          minimum: 0
+          description: Cursor to persist and send as the next `since_revision`.
+        server_time: { type: string, format: date-time }
+        favourites:
+          type: object
+          additionalProperties: false
+          required: [records]
+          properties:
+            records:
+              type: array
+              items: { $ref: "#/components/schemas/PersonalFavouriteRecord" }
+        history:
+          type: object
+          additionalProperties: false
+          required: [records]
+          properties:
+            records:
+              type: array
+              items: { $ref: "#/components/schemas/PersonalHistoryRecord" }
+        stations:
+          type: array
+          items: { $ref: "#/components/schemas/BrowserStation" }
+    BrowserStation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - stream_url
+        - tags
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128 }
+        name: { type: string, minLength: 1 }
+        stream_url: { type: string, format: uri }
+        homepage_url: { type: [string, "null"], format: uri }
+        favicon_url: { type: [string, "null"], format: uri-reference }
+        tags: { type: array, items: { type: string } }
+        language: { type: [string, "null"] }
+        country_code: { type: [string, "null"], pattern: "^[A-Z]{2}$" }
+        codec: { type: [string, "null"] }
+        bitrate_kbps: { type: [integer, "null"], minimum: 1 }
+

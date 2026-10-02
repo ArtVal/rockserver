@@ -17,6 +17,10 @@ export type AdminIconJob = { id: string; status: "running" | "completed" | "inte
 export type StationItem = { id: string; name: string; stream_url?: string; homepage_url?: string; tags: string[]; language?: string; country_code?: string; codec?: string; bitrate_kbps?: number; health?: string; favicon_url?: string };
 export type SearchResponse = { request_id: string; stations: StationItem[]; total?: number; has_more?: boolean };
 export type StationNowPlaying = { stationId?: string; station_id?: string; state: "fresh" | "stale" | "missing"; rawTitle?: string | null; raw_title?: string | null; updatedAt?: string | null; updated_at?: string | null };
+export type PersonalSyncRecord = { record_id: string; station_id?: string; added_at: string; updated_at: string; deleted_at?: string };
+export type PersonalHistoryRecord = { record_id: string; station_id?: string; started_at: string; last_played_at: string; ended_at?: string; play_duration_ms?: number; metadata?: Record<string, unknown>; updated_at: string; deleted_at?: string };
+export type BrowserSyncResponse = { server_revision: number; server_time: string; favourites: { records: PersonalSyncRecord[] }; history: { records: PersonalHistoryRecord[] }; stations: StationItem[] };
+export type BrowserSyncRequest = { since_revision?: number; favourites?: { upserts?: Array<{ record_id: string; station_id: string; added_at: string; updated_at: string }>; deletes?: Array<{ record_id: string; updated_at: string }> }; history?: { upserts?: Array<{ record_id: string; station_id: string; started_at: string; last_played_at: string; ended_at?: string; play_duration_ms?: number; metadata?: Record<string, unknown>; updated_at: string }>; deletes?: Array<{ record_id: string; updated_at: string }> } };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, { ...init, credentials: "same-origin", headers: { "Content-Type": "application/json", ...init.headers } });
@@ -48,6 +52,13 @@ export const api = {
   },
   stationNowPlaying(stationId: string) {
     return request<StationNowPlaying>(`/api/v1/stations/${encodeURIComponent(stationId)}/now-playing`);
+  },
+  browserSync(payload: BrowserSyncRequest, csrfToken: string) {
+    return request<BrowserSyncResponse>("/api/v1/browser/sync", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(payload),
+    });
   },
 };
 

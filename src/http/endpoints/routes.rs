@@ -5,8 +5,9 @@ use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, Tr
 use tracing::Level;
 
 use super::{
-    account, admin_auth, admin_console, auth, catalog, control, device_catalog, directory, health,
-    pairing, relay, search, state::AppState, station_icons, sync, voice, yandex_home,
+    account, admin_auth, admin_console, auth, browser_sync, catalog, control, device_catalog,
+    directory, health, pairing, relay, search, state::AppState, station_icons, sync, voice,
+    yandex_home,
 };
 
 /// Assembles the complete Axum router tree with public and administrative routes,
@@ -124,6 +125,10 @@ pub(super) fn build_router(state: AppState) -> Router {
         .route(
             "/api/v1/browser/account",
             axum::routing::get(account::browser_account),
+        )
+        .route(
+            "/api/v1/browser/sync",
+            axum::routing::post(browser_sync::browser_sync_request),
         )
         .route(
             "/api/v1/browser/yandex-home/authorize",

@@ -1,5 +1,23 @@
 # Task log
 
+## 2026-10-02 — PERSONAL-SYNC-WEB-001: server-side account sync for favorites and playback history across devices
+
+- Goal: implement server-side synchronization of favorites and playback history for the web cabinet, syncing data across all paired devices (Windows RockCast, web browser) via PostgreSQL personal data storage, and fix favorites display bug.
+- Scope:
+  - Backend (`src/http/browser_sync.rs`): introduced authenticated `POST /api/v1/browser/sync` endpoint matching `PersonalDataStore.synchronize` semantics behind browser cookie + CSRF token + trusted proxy verification. Active favorites are enriched in the response with `PublicStationDto` representations.
+  - Contract (`api/openapi.yaml`): declared `/api/v1/browser/sync` path and `BrowserPersonalSyncResponse` schemas with full parameter bounds and descriptions.
+  - Frontend (`web/src/api.ts`): defined TypeScript types and client method `api.browserSync`.
+  - Hook (`web/src/usePersonalSync.ts`): created modular hook managing LWW conflict resolution, initial migration of legacy localStorage favorites, optimistic UI updates, and fire-and-forget server sync.
+  - UI (`web/src/components/AccountCentre.tsx`): integrated `usePersonalSync`; decoupled favorites and history tabs from the 20-station query catalog window so favorited stations always remain visible; added query filtering for favorites/history views.
+- Checks:
+  - `cargo fmt --check`: passed.
+  - `cargo clippy --all-targets --all-features -- -D warnings`: passed with 0 warnings.
+  - `cargo test`: passed all unit, integration, and contract test suites.
+  - `pnpm test`: passed all 15/15 UX tests.
+  - `pnpm run build`: passed clean (`tsc` and Vite build).
+- Status: **completed**.
+
+
 ## 2026-10-01 — DEPLOY: Search and device catalog rate limits increased to production parameters deployed to staging
 
 - Goal: build, deploy, and verify release commit `9ec1413` on the staging VPS via `deploy/ops-001-d.ps1`.

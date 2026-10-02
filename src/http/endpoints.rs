@@ -21,6 +21,8 @@ mod admin_auth;
 mod admin_console;
 #[path = "auth.rs"]
 mod auth;
+#[path = "browser_sync.rs"]
+mod browser_sync;
 #[path = "catalog.rs"]
 mod catalog;
 #[path = "control.rs"]

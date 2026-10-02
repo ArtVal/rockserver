@@ -350,6 +350,21 @@ async fn browser_session_refresh_rejects_direct_requests() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
+#[tokio::test]
+async fn browser_sync_rejects_direct_requests() {
+    let response = router()
+        .oneshot(
+            Request::post("/api/v1/browser/sync")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
 async fn assert_health_endpoint(uri: &str) {
     let response = router()
         .oneshot(Request::get(uri).body(Body::empty()).unwrap())
