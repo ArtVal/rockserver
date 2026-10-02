@@ -10,6 +10,7 @@
  * anonymous WebSocket) lives in `voiceBrowser.ts`.
  */
 import type { StationItem } from "./api";
+import { SpeechEndDetector } from "./voiceActivity";
 
 /** Server-published limits of /api/v1/voice/stream mirrored client-side. */
 export const VOICE_STREAM_LIMITS = {
@@ -106,6 +107,7 @@ export type VoiceMicrophoneFactory = (
 
 export type VoiceSessionEvent =
   | { type: "started" }
+  | { type: "processing" }
   | { type: "transcript"; text: string; isFinal: boolean }
   | { type: "result"; transcript: string; stations: StationItem[] }
   | { type: "error"; failure: VoiceFailure }
@@ -155,6 +157,7 @@ export class VoiceSearchSession {
   private terminalSeen = false;
   private committed = false;
   private totalSamples = 0;
+  private readonly speechEnd = new SpeechEndDetector();
   private pendingSamples: number[] = [];
   private wallTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -236,7 +239,7 @@ export class VoiceSearchSession {
     socket.onclose = disconnected;
   }
 
-  /** User pressed «Завершить» (or the 60 s audio cap fired): stop mic, flush, commit. */
+  /** Speech ended (or the audio cap fired): stop mic, flush, commit. */
   finish(): void {
     if (this.state !== "recording") return;
     this.releaseMicrophone();
@@ -249,21 +252,21 @@ export class VoiceSearchSession {
     }
     this.committed = true;
     this.state = "processing";
+    this.onEvent({ type: "processing" });
     this.socket?.send(JSON.stringify({ type: "commit" }));
   }
 
-  /** User pressed «Отменить»: nothing from this session may reach the UI afterwards. */
+  /** Second microphone click: cancel immediately and ignore every later outcome. */
   cancel(): void {
     if (this.state === "idle" || this.state === "done") return;
     this.cancelled = true;
     this.releaseMicrophone();
     this.pendingSamples = [];
     if (this.state === "recording" && this.socket && !this.committed) {
-      // The server answers exactly one terminal `cancelled` error; wait for it.
+      // Send the protocol cancellation, but do not wait to release the UI.
       this.committed = true;
       this.state = "processing";
       this.socket.send(JSON.stringify({ type: "cancel" }));
-      return;
     }
     // Connecting (no socket yet) or already committed: nothing to wait for.
     this.finishWith({ type: "cancelled" });
@@ -292,9 +295,19 @@ export class VoiceSearchSession {
     const accepted = remaining >= pcm.length ? pcm : pcm.subarray(0, remaining);
     this.totalSamples += accepted.length;
     for (let i = 0; i < accepted.length; i += 1) this.pendingSamples.push(accepted[i]);
-    if (this.state === "recording") this.drainFrames();
-    if (this.totalSamples >= MAX_SESSION_SAMPLES) {
-      // The server would reject further audio; behave like pressing «Завершить».
+    this.speechEnd.push(accepted);
+    if (this.state === "recording") {
+      this.drainFrames();
+      this.finishAutomatically();
+    }
+  }
+
+  /** Defer committing pre-ready speech until the server accepts PCM frames. */
+  private finishAutomatically(): void {
+    if (this.speechEnd.outcome === "silence") {
+      this.socket?.send(JSON.stringify({ type: "cancel" }));
+      this.finishWith({ type: "error", failure: voiceFailure("not_recognized") });
+    } else if (this.speechEnd.outcome === "speech" || this.totalSamples >= MAX_SESSION_SAMPLES) {
       this.finish();
     }
   }
@@ -325,6 +338,7 @@ export class VoiceSearchSession {
           this.state = "recording";
           this.drainFrames();
           this.onEvent({ type: "started" });
+          this.finishAutomatically();
         }
         return;
       case "transcript":

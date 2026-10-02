@@ -221,7 +221,11 @@ test("stage 9 voice search is an explicit mic button beside the single search wi
   const appSource = await readFile(new URL("../src/app.tsx", import.meta.url), "utf8");
   // One search box remains; the mic trigger is an explicit labelled button.
   assert.match(header, /voice-mic-btn/);
-  assert.match(header, /aria-label="Голосовой поиск станции"/);
+  assert.match(header, /aria-label=\{voiceActive \? "Отменить голосовой поиск" : "Голосовой поиск станции"\}/);
+  assert.doesNotMatch(header, /disabled=\{voiceBusy\}/);
+  const panel = await readFile(new URL("../src/components/VoiceSearchPanel.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(panel, /onFinish|onCancel|Завершить/);
+  assert.match(centre, /onVoiceSearch=\{voice.toggle\}/);
   assert.match(header, /onVoiceSearch/);
   assert.equal((header.match(/type="search"/g) ?? []).length, 1);
   // Protocol: PCM s16le 16 kHz frames, buffered_v1, limit capped at 10, cancel

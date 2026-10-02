@@ -12,7 +12,6 @@ export function Header({
   logoutBusy,
   onVoiceSearch,
   voiceActive = false,
-  voiceBusy = false,
 }: {
   accountName?: string;
   searchQuery: string;
@@ -24,7 +23,6 @@ export function Header({
   /** Explicit user gesture that starts the voice permission + recording flow. */
   onVoiceSearch?: () => void;
   voiceActive?: boolean;
-  voiceBusy?: boolean;
 }) {
   return (
     <header class="app-header">
@@ -79,9 +77,8 @@ export function Header({
               type="button"
               class={`voice-mic-btn ${voiceActive ? "active" : ""}`}
               onClick={onVoiceSearch}
-              disabled={voiceBusy}
-              aria-label="Голосовой поиск станции"
-              title="Голосовой поиск станции"
+              aria-label={voiceActive ? "Отменить голосовой поиск" : "Голосовой поиск станции"}
+              title={voiceActive ? "Отменить голосовой поиск" : "Голосовой поиск станции"}
               aria-pressed={voiceActive}
             >
               {voiceActive ? "●" : "🎤"}

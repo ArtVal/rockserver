@@ -64,13 +64,14 @@ function fixtureMicrophone(
       Object.assign(new Error("fixture: no microphone"), { name: "NotFoundError" })
     );
   const downsampler = new PcmDownsampler(FIXTURE_INPUT_RATE);
-  const amplitude = mode === "silence" ? 0 : 0.3;
+  let ticks = 0;
   let phase = 0;
   const step = (2 * Math.PI * FIXTURE_TONE_HZ) / FIXTURE_INPUT_RATE;
   let closed = false;
   // Real-time pacing keeps the 60 s session cap measured in true seconds.
   const timer = setInterval(() => {
     if (closed) return;
+    const amplitude = mode === "tone" && ++ticks > 4 && ticks <= 16 ? 0.3 : 0;
     const block = new Float32Array(FIXTURE_BLOCK);
     for (let i = 0; i < FIXTURE_BLOCK; i += 1) {
       block[i] = amplitude * Math.sin(phase);

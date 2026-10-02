@@ -3,15 +3,20 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import ts from "typescript";
 
-// voice.ts and voicePcm.ts only type-import from api.ts, so the transpiled
+// The detector, protocol client, and PCM downsampler are transpiled so their
 // modules run standalone: these tests execute the real session state machine
 // and the real anti-aliased downsampler against fake sockets and microphones.
 
 const loadModule = async (relativePath) => {
   const source = await readFile(new URL(relativePath, import.meta.url), "utf8");
-  const { outputText } = ts.transpileModule(source, {
+  let { outputText } = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   });
+  if (relativePath.endsWith("/voice.ts")) {
+    const activity = await readFile(new URL("../src/voiceActivity.ts", import.meta.url), "utf8");
+    const js = ts.transpileModule(activity, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+    outputText = outputText.replace("./voiceActivity", `data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
+  }
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
 };
 
@@ -49,6 +54,7 @@ const fakeMicrophone = () => {
   return {
     state,
     factory,
+    level: (count, amplitude) => emitChunk(new Int16Array(count).fill(amplitude)),
     emit: (count) =>
       emitChunk(Int16Array.from({ length: count }, (_, index) => ((index * 37) % 1000) - 500)),
   };
@@ -244,17 +250,59 @@ test("stage 9 terminal server error codes map to distinct user-facing failures",
   }
 });
 
-test("stage 9 the 60-second audio cap auto-commits and never exceeds the server byte budget", async () => {
-  const { session, socket, mic } = await startedSession();
-  const totalSamples = 960000;
-  const chunk = 40000;
-  for (let sent = 0; sent < totalSamples; sent += chunk) mic.emit(chunk);
+test("continuous sound automatically commits after eight seconds of speech", async () => {
+  const { socket, mic, events } = await startedSession();
+  mic.level(4800, 0);
+  for (let i = 0; i < 81; i++) mic.level(1600, 1500);
   assert.deepEqual(socket.textFrames.at(-1), { type: "commit" });
-  assert.equal(socket.binaryBytes, totalSamples * 2);
+  assert.equal(socket.binaryBytes, 134400 * 2);
   assert.equal(mic.state.closeCount, 1);
-  const bytesAtCap = socket.binaryBytes;
-  mic.emit(40000);
-  assert.equal(socket.binaryBytes, bytesAtCap);
+  assert.equal(events.at(-1).type, "processing");
+  mic.level(16000, 1500);
+  assert.equal(socket.binaryBytes, 134400 * 2);
+});
+
+test("speech auto-commits after one second of silence, not a short pause", async () => {
+  const { socket, mic, events } = await startedSession();
+  mic.level(6400, 50);
+  mic.level(16000, 1500);
+  mic.level(8000, 0);
+  assert.equal(socket.textFrames.length, 1);
+  mic.level(3200, 1500);
+  for (let i = 0; i < 9; i++) mic.level(1600, 0);
+  assert.equal(socket.textFrames.length, 1);
+  mic.level(1600, 0);
+  assert.deepEqual(socket.textFrames.at(-1), { type: "commit" });
+  assert.equal(mic.state.closeCount, 1);
+  assert.equal(events.at(-1).type, "processing");
+});
+
+test("silence aborts locally without sending a recognition commit", async () => {
+  const { socket, mic, events } = await startedSession();
+  for (let i = 0; i < 45; i++) mic.level(1600, 50);
+  assert.deepEqual(socket.textFrames.at(-1), { type: "cancel" });
+  assert.equal(events.at(-1).failure.kind, "not_recognized");
+  assert.equal(mic.state.closeCount, 1);
+  assert.ok(socket.closeCalled);
+});
+
+test("speech captured before ready auto-commits only after ready", async () => {
+  const mic = fakeMicrophone(), socket = new FakeVoiceSocket(), events = [];
+  const session = new VoiceSearchSession({ socketFactory: () => socket,
+    microphoneFactory: mic.factory, onEvent: event => events.push(event),
+    setTimeoutFn: fakeTimers().setTimeoutFn });
+  await session.start();
+  socket.serverOpen();
+  mic.level(6400, 0); mic.level(16000, 1500); mic.level(16000, 0);
+  assert.equal(socket.binaryBytes, 0);
+  assert.equal(socket.textFrames.length, 1);
+  socket.serverSend({ type: "ready" });
+  assert.deepEqual(socket.textFrames.at(-1), { type: "commit" });
+  assert.equal(socket.binaryBytes, 38400 * 2);
+  assert.deepEqual(events.map(e => e.type), ["started", "processing"]);
+  session.cancel();
+  assert.equal(events.at(-1).type, "cancelled");
+  assert.ok(socket.closeCalled);
 });
 
 test("stage 9 dispose releases the mic and socket and ignores everything afterwards", async () => {
@@ -375,4 +423,23 @@ test("stage 9 downsampler low-passes above the 8 kHz output Nyquist before decim
 test("stage 9 downsampler rejects impossible rates", () => {
   assert.throws(() => new PcmDownsampler(0));
   assert.throws(() => new PcmDownsampler(Number.NaN));
+});
+
+test("a second click during permission cancels immediately and closes a late microphone", async () => {
+  let grant;
+  let sockets = 0, closed = 0;
+  const events = [];
+  const session = new VoiceSearchSession({
+    socketFactory: () => { sockets++; return new FakeVoiceSocket(); },
+    microphoneFactory: () => new Promise(resolve => { grant = resolve; }),
+    onEvent: event => events.push(event), setTimeoutFn: fakeTimers().setTimeoutFn,
+  });
+  const pending = session.start();
+  session.cancel();
+  assert.equal(events.at(-1).type, "cancelled");
+  grant({ close: () => { closed++; } });
+  await pending;
+  assert.equal(sockets, 0);
+  assert.equal(closed, 1);
+  assert.equal(events.length, 1);
 });

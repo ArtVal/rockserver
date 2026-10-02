@@ -2,6 +2,13 @@
 
 Last updated: 2026-10-02
 
+## Automatic browser voice search — 2026-10-02
+
+- Implemented the RockCast-style PCM amplitude detector: 350 ms startup calibration, 1 s silence after speech, 4.5 s initial silence timeout, and an 8 s continuous-speech guard. Automatic commit preserves buffered pre-ready speech and the final partial PCM frame; processing status comes from the session event.
+- Removed Finish and Cancel buttons. The microphone stays enabled and its second click cancels immediately during permission, capture, or recognition. Cancelled/late results cannot change the catalog; late permission grants release the microphone without opening a socket.
+- Verification: sequential frontend typecheck, tests (48/48), production build, cargo fmt --check, strict Clippy, cargo test. Physical microphone, noisy-room behavior, and live SpeechKit recognition require a manual user check; the detector is an amplitude heuristic, not a speech classifier. Database/live-provider tests remain gated.
+- Deployment: pending publication of this change.
+
 ## DEPLOY: stages 8–9 and sliding browser sessions deployed (2026-10-02)
 
 Release commits `b03c463` (stage 8 infinite paging + stage 9 voice search) and `ddc1fb6` (long-lived sliding browser sessions) were pushed to `origin/master` and deployed to the production VPS via `deploy/ops-001-d.ps1 -Action deploy`:

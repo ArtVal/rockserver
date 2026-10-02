@@ -384,9 +384,8 @@ export function AccountCentre({
         onSearchClear={handleSearchClear}
         onLogout={onLogout}
         logoutBusy={logoutBusy}
-        onVoiceSearch={voice.start}
+        onVoiceSearch={voice.toggle}
         voiceActive={voiceSessionActive}
-        voiceBusy={voiceSessionActive}
       />
 
       <main class="cabinet-main-grid">
@@ -408,8 +407,6 @@ export function AccountCentre({
             interim={voice.interim}
             failure={voice.failure}
             elapsedMs={voice.elapsedMs}
-            onFinish={voice.finish}
-            onCancel={voice.cancel}
             onDismiss={voice.dismiss}
             onRetry={voice.start}
           />

@@ -3,7 +3,7 @@ import type { VoiceSearchStatus } from "../useVoiceSearch";
 
 /**
  * Voice search states rendered next to the catalog: permission request,
- * live recording with finish/cancel, recognition, a recognized transcript with
+ * automatic recording, recognition, a recognized transcript with
  * a dismiss action, and failures with retry. The catalog itself shows the
  * candidate list; this panel only narrates the voice interaction.
  */
@@ -13,8 +13,6 @@ export function VoiceSearchPanel({
   interim,
   failure,
   elapsedMs,
-  onFinish,
-  onCancel,
   onDismiss,
   onRetry,
 }: {
@@ -23,8 +21,6 @@ export function VoiceSearchPanel({
   interim: string;
   failure?: VoiceFailure;
   elapsedMs: number;
-  onFinish: () => void;
-  onCancel: () => void;
   onDismiss: () => void;
   onRetry: () => void;
 }) {
@@ -51,14 +47,7 @@ export function VoiceSearchPanel({
             <span class="voice-timer font-mono-code">{timer}</span>
           </div>
           {interim && <p class="voice-interim truncate">«{interim}»</p>}
-          <div class="voice-actions">
-            <button type="button" class="card-play-btn" onClick={onFinish}>
-              Завершить
-            </button>
-            <button type="button" class="secondary" onClick={onCancel}>
-              Отменить
-            </button>
-          </div>
+          <p class="voice-interim">Поиск начнётся после паузы в речи. Для отмены нажмите микрофон ещё раз.</p>
         </>
       )}
 
@@ -68,11 +57,6 @@ export function VoiceSearchPanel({
             <span class="list-spinner voice-spinner" aria-hidden="true" />
             Распознаём запрос…
           </p>
-          <div class="voice-actions">
-            <button type="button" class="secondary" onClick={onCancel}>
-              Отменить
-            </button>
-          </div>
         </>
       )}
 

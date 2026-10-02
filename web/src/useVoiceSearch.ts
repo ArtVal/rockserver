@@ -21,8 +21,7 @@ export type VoiceSearch = {
   elapsedMs: number;
   supported: boolean;
   start: () => void;
-  finish: () => void;
-  cancel: () => void;
+  toggle: () => void;
   dismiss: () => void;
 };
 
@@ -78,6 +77,10 @@ export function useVoiceSearch(): VoiceSearch {
             setElapsedMs(Date.now() - startedAtRef.current);
           }, 250);
           return;
+        case "processing":
+          stopTimer();
+          setStatus("processing");
+          return;
         case "transcript":
           if (event.isFinal) setTranscript(event.text);
           else setInterim(event.text);
@@ -128,14 +131,10 @@ export function useVoiceSearch(): VoiceSearch {
     session.start().catch(() => undefined);
   }, [handleEvent, resetOutput, teardown]);
 
-  const finish = useCallback(() => {
-    setStatus((current) => (current === "recording" ? "processing" : current));
-    sessionRef.current?.finish();
-  }, []);
-
-  const cancel = useCallback(() => {
-    sessionRef.current?.cancel();
-  }, []);
+  const toggle = useCallback(() => {
+    if (sessionRef.current) sessionRef.current.cancel();
+    else start();
+  }, [start]);
 
   /** Drops results/errors and returns to the plain catalog view. */
   const dismiss = useCallback(() => {
@@ -164,8 +163,7 @@ export function useVoiceSearch(): VoiceSearch {
     elapsedMs,
     supported: voiceSearchSupported(),
     start,
-    finish,
-    cancel,
+    toggle,
     dismiss,
   };
 }
