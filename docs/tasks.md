@@ -1,5 +1,16 @@
 # Task log
 
+## 2026-10-02 — DEPLOY: Redesigned user cabinet (stages 2–7) with pairing session reuse deployed to staging
+
+- Goal: build, deploy, and verify release commit `2368c66` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-2368c66a99a0e3fa28eead76d5d4b30ee4dff310` (`sha256:a10601982e4d48051884ae220b32857cd037dde9a6613e0a76f7b6cde47f7720`) and `rockserver-caddy:sha-2368c66a99a0e3fa28eead76d5d4b30ee4dff310`; the web bundle built inside the image matches the locally verified one.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified remote execution: worker PID 1516644 completed with `status=succeeded`, remote readiness probe passed (`readiness=passed`).
+  - Verified live deployment: `https://rockplatform.win/` loads bundle `index-Dr613h5P.js` / `index-C_w9otA0.css`; `/health/ready` returns 200; the redesigned anonymous gate renders at 1440 and 390 px without horizontal overflow; a real lookup of a non-existent pairing link shows the terminal card and strips the secret from the URL; public search returns real stations (first post-deploy call timed out cold, retry succeeded).
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `2368c66`.
+
 ## 2026-10-02 — FRONTEND-REDESIGN-007: stage 7 pre-release pass, defect fixes, and release
 
 - Goal: run the full stage-7 verification of the redesigned cabinet, fix found defects, and release stages 2–7 plus the pairing-session change per `docs/frontend-redesign-plan.md`.
