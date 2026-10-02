@@ -190,6 +190,14 @@ pub struct NewPairingSession<'a> {
     pub device_secret_hash: &'a SecretHash,
 }
 
+/// Sliding idle window of a browser session: authenticated traffic keeps
+/// renewing `expires_at` up to this many minutes, so an active user stays
+/// signed in like on other consumer sites.
+pub const BROWSER_SESSION_IDLE_MINUTES: i32 = 30 * 24 * 60;
+/// Absolute browser-session lifetime counted from the passkey sign-in that
+/// created it; reaching it always requires a fresh passkey ceremony.
+pub const BROWSER_SESSION_ABSOLUTE_MINUTES: i32 = 180 * 24 * 60;
+
 /// Hashed browser-session material created after a passkey ceremony.
 pub struct NewBrowserSession<'a> {
     /// Browser session identifier.
@@ -204,6 +212,8 @@ pub struct NewBrowserSession<'a> {
     pub passkey_reauthenticated_at_rfc3339: &'a str,
     /// Browser-session expiry in RFC 3339 UTC form.
     pub expires_at_rfc3339: &'a str,
+    /// Hard expiry the sliding window can never extend past, in RFC 3339 UTC form.
+    pub absolute_expires_at_rfc3339: &'a str,
 }
 
 /// Hashed passkey, challenge, and browser-session material committed as one account transaction.

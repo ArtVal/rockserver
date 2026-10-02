@@ -83,6 +83,7 @@ async fn postgres_b2_browser_pairing_webauthn_and_rate_limits() {
                 csrf_hash: &SecretHash::new([1; 32]),
                 passkey_reauthenticated_at_rfc3339: "2035-01-01T00:00:00Z",
                 expires_at_rfc3339: "2035-02-01T00:00:00Z",
+                absolute_expires_at_rfc3339: "2035-08-01T00:00:00Z",
             })
             .await
             .unwrap()
@@ -460,7 +461,8 @@ async fn postgres_browser_account_centre_owns_rename_and_revoke() {
                 session_token_hash: &cookie,
                 csrf_hash: &csrf,
                 passkey_reauthenticated_at_rfc3339: "2035-01-01T00:00:00Z",
-                expires_at_rfc3339: "2035-02-01T00:00:00Z"
+                expires_at_rfc3339: "2035-02-01T00:00:00Z",
+                absolute_expires_at_rfc3339: "2035-08-01T00:00:00Z"
             })
             .await
             .unwrap()
@@ -506,5 +508,119 @@ async fn postgres_browser_account_centre_owns_rename_and_revoke() {
     );
     assert!(!store.revoke_owned_device(foreign, device.id).await.unwrap());
     assert!(store.revoke_owned_device(owner, device.id).await.unwrap());
+    store.close().await;
+}
+
+/// Covers the long-lived browser session policy: a sliding idle window renewed
+/// by authenticated traffic and an absolute cap that always requires a fresh
+/// passkey sign-in once reached.
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL pointing to a disposable PostgreSQL database"]
+async fn postgres_browser_session_sliding_window_and_absolute_cap() {
+    let database_url = env::var("TEST_DATABASE_URL")
+        .expect("set TEST_DATABASE_URL to an isolated PostgreSQL database");
+    let store = PostgresAccountStore::connect(&database_url)
+        .await
+        .expect("account migrations must succeed");
+    let user_id = Uuid::new_v4();
+    store.create_user(user_id).await.unwrap();
+
+    // A session issued by the standard policy resolves immediately.
+    let policy_session = SecretHash::new([51; 32]);
+    let policy_csrf = SecretHash::new([52; 32]);
+    assert!(
+        store
+            .create_browser_session_with_policy(NewBrowserSession {
+                session_id: Uuid::new_v4(),
+                user_id,
+                session_token_hash: &policy_session,
+                csrf_hash: &policy_csrf,
+                passkey_reauthenticated_at_rfc3339: "unused: database clock",
+                expires_at_rfc3339: "unused: database clock",
+                absolute_expires_at_rfc3339: "unused: database clock",
+            })
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        store.browser_session_user(&policy_session).await.unwrap(),
+        Some(user_id)
+    );
+
+    // The absolute cap gates resolution even while the sliding window is open:
+    // a session whose hard expiry lies in the past must not authenticate.
+    let capped_session = SecretHash::new([53; 32]);
+    let capped_csrf = SecretHash::new([54; 32]);
+    assert!(
+        store
+            .create_browser_session(NewBrowserSession {
+                session_id: Uuid::new_v4(),
+                user_id,
+                session_token_hash: &capped_session,
+                csrf_hash: &capped_csrf,
+                passkey_reauthenticated_at_rfc3339: "2035-01-01T00:00:00Z",
+                expires_at_rfc3339: "2035-02-01T00:00:00Z",
+                absolute_expires_at_rfc3339: "2020-01-01T00:00:00Z",
+            })
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        store.browser_session_user(&capped_session).await.unwrap(),
+        None
+    );
+
+    // Renewal never extends past the cap: a below-threshold window renews to
+    // the absolute expiry, and a session far inside its window is untouched.
+    let near_idle = SecretHash::new([55; 32]);
+    let near_idle_csrf = SecretHash::new([56; 32]);
+    let expires_soon = {
+        let soon = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 24 * 60 * 60;
+        time::OffsetDateTime::from_unix_timestamp(soon as i64)
+            .unwrap()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap()
+    };
+    let far_absolute = {
+        let far = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 180 * 24 * 60 * 60;
+        time::OffsetDateTime::from_unix_timestamp(far as i64)
+            .unwrap()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap()
+    };
+    assert!(
+        store
+            .create_browser_session(NewBrowserSession {
+                session_id: Uuid::new_v4(),
+                user_id,
+                session_token_hash: &near_idle,
+                csrf_hash: &near_idle_csrf,
+                passkey_reauthenticated_at_rfc3339: "2035-01-01T00:00:00Z",
+                expires_at_rfc3339: &expires_soon,
+                absolute_expires_at_rfc3339: &far_absolute,
+            })
+            .await
+            .unwrap()
+    );
+    store.renew_browser_session(&near_idle).await.unwrap();
+    // The renewal pushed the sliding window out, so the session still resolves.
+    assert_eq!(
+        store.browser_session_user(&near_idle).await.unwrap(),
+        Some(user_id)
+    );
+    // A capped session stays dead after a renewal attempt.
+    store.renew_browser_session(&capped_session).await.unwrap();
+    assert_eq!(
+        store.browser_session_user(&capped_session).await.unwrap(),
+        None
+    );
     store.close().await;
 }

@@ -2,6 +2,18 @@
 
 Last updated: 2026-10-02
 
+## AUTH-001: long-lived sliding browser sessions (2026-10-02)
+
+Browser sign-in now behaves like mainstream consumer sites instead of expiring after a fixed 30 minutes. No auth semantics beyond lifetime changed: passkey ceremonies, CSRF, the trusted-proxy proof, logout revocation, and the fresh-passkey requirement for account deletion are untouched.
+- Policy (`src/auth/mod.rs` constants): a **30-day sliding idle window** renewed by authenticated traffic, capped by an **absolute 180-day lifetime** from the passkey sign-in that created the session. Reaching either bound requires a fresh passkey ceremony; the browser then shows the existing «Сессия браузера завершена» gate.
+- Migration `0026_add_browser_session_absolute_expiry.sql` adds `browser_sessions.absolute_expires_at` (NOT NULL). Existing rows get `absolute_expires_at = expires_at`, so no already-active session is silently extended; only new sign-ins receive the 180-day ceiling.
+- Persistence (`src/persistence/account_postgres/browser.rs`): both session resolvers (`browser_session_user`, `browser_session_user_with_csrf`) additionally check `absolute_expires_at > now()` and, on success, best-effort call the new `renew_browser_session` — one indexed UPDATE that only writes when less than half of the idle window remains and caps the new expiry with `LEAST(now() + idle, absolute_expires_at)`. Renewal failures are logged and never fail the authenticated request. Session creation (`create_browser_session_with_policy`, and the registration transaction in `passkeys.rs`) writes both lifetimes from PostgreSQL's clock.
+- Cookie (`src/http/auth.rs`): `rockserver_browser` Max-Age now matches the absolute lifetime (180 days) on both issuance sites (registration and login); the database, not the cookie, enforces the idle window.
+- OpenAPI: the `RockserverBrowserCookie` security-scheme description now documents the sliding/absolute lifetimes (the wire contract itself is unchanged).
+- Tests: the gated PostgreSQL integration suite gained `postgres_browser_session_sliding_window_and_absolute_cap` (policy issuance resolves; a past absolute cap rejects despite an open sliding window; renewal of a below-threshold session keeps it resolvable and never resurrects a capped one); existing `NewBrowserSession` literals were updated for the new field. Unit suites are unchanged because lifetime enforcement lives entirely in SQL.
+- Checks (sequential): `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, `cargo test` — all passed; PostgreSQL integration tests were not run (no disposable `TEST_DATABASE_URL`).
+- Known limitations: no user-facing list of active browser sessions yet (a stolen 180-day cookie can only be killed by changing the account or awaiting the cap); logout still revokes the single current session. Deploy of this change is recorded separately below.
+
 ## FRONTEND-REDESIGN-009: browser voice station search (2026-10-02)
 
 Stage 9 of `docs/frontend-redesign-plan.md` is implemented locally (not deployed). The server and OpenAPI contract are unchanged — the existing anonymous `/api/v1/voice/stream` WebSocket route is used as-is:

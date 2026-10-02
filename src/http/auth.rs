@@ -13,8 +13,8 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::auth::{
-    NewBrowserSession, NewPasskeyRegistration, NewWebAuthnChallenge, PasskeyRegistrationOutcome,
-    WebAuthnCeremony, webauthn,
+    BROWSER_SESSION_ABSOLUTE_MINUTES, NewBrowserSession, NewPasskeyRegistration,
+    NewWebAuthnChallenge, PasskeyRegistrationOutcome, WebAuthnCeremony, webauthn,
 };
 
 use super::{
@@ -267,6 +267,7 @@ pub(super) async fn registration_verify(
         csrf_hash: &csrf_hash,
         passkey_reauthenticated_at_rfc3339: "unused: database clock",
         expires_at_rfc3339: "unused: database clock",
+        absolute_expires_at_rfc3339: "unused: database clock",
     };
     let registration = NewPasskeyRegistration {
         user_id: state_blob.user_id,
@@ -318,7 +319,7 @@ pub(super) async fn registration_verify(
             .into_response(),
         &request_id,
     );
-    response.headers_mut().insert(header::SET_COOKIE, HeaderValue::from_str(&format!("rockserver_browser={session_token}; Path=/; Max-Age=1800; HttpOnly; Secure; SameSite=Lax")).expect("generated cookie is valid"));
+    response.headers_mut().insert(header::SET_COOKIE, HeaderValue::from_str(&format!("rockserver_browser={session_token}; Path=/; Max-Age={}; HttpOnly; Secure; SameSite=Lax", BROWSER_SESSION_ABSOLUTE_MINUTES * 60)).expect("generated cookie is valid"));
     response
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
@@ -548,9 +549,10 @@ pub(super) async fn authentication_verify(
         csrf_hash: &token_hash(&csrf_token),
         passkey_reauthenticated_at_rfc3339: "unused: database clock",
         expires_at_rfc3339: "unused: database clock",
+        absolute_expires_at_rfc3339: "unused: database clock",
     };
     if !store
-        .create_browser_session_for_minutes(session, 30)
+        .create_browser_session_with_policy(session)
         .await
         .unwrap_or(false)
     {
@@ -566,7 +568,7 @@ pub(super) async fn authentication_verify(
         Json(json!({"csrf_token": csrf_token})).into_response(),
         &request_id,
     );
-    response.headers_mut().insert(header::SET_COOKIE, HeaderValue::from_str(&format!("rockserver_browser={session_token}; Path=/; Max-Age=1800; HttpOnly; Secure; SameSite=Lax")).expect("generated cookie is valid"));
+    response.headers_mut().insert(header::SET_COOKIE, HeaderValue::from_str(&format!("rockserver_browser={session_token}; Path=/; Max-Age={}; HttpOnly; Secure; SameSite=Lax", BROWSER_SESSION_ABSOLUTE_MINUTES * 60)).expect("generated cookie is valid"));
     response
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));

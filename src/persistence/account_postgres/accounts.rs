@@ -267,8 +267,8 @@ impl PostgresAccountStore {
         session: NewBrowserSession<'_>,
     ) -> Result<bool, sqlx::Error> {
         let inserted = sqlx::query(
-            "INSERT INTO browser_sessions (id, user_id, session_token_hash, csrf_token_hash, passkey_reauthenticated_at, expires_at) \
-             SELECT $1, id, $3, $4, $5::timestamptz, $6::timestamptz FROM users WHERE id = $2 AND status = 'active'",
+            "INSERT INTO browser_sessions (id, user_id, session_token_hash, csrf_token_hash, passkey_reauthenticated_at, expires_at, absolute_expires_at) \
+             SELECT $1, id, $3, $4, $5::timestamptz, $6::timestamptz, $7::timestamptz FROM users WHERE id = $2 AND status = 'active'",
         )
         .bind(session.session_id)
         .bind(session.user_id)
@@ -276,6 +276,7 @@ impl PostgresAccountStore {
         .bind(session.csrf_hash.as_bytes())
         .bind(session.passkey_reauthenticated_at_rfc3339)
         .bind(session.expires_at_rfc3339)
+        .bind(session.absolute_expires_at_rfc3339)
         .execute(&self.pool)
         .await?;
         Ok(inserted.rows_affected() == 1)

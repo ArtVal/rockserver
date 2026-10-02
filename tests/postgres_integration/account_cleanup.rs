@@ -76,6 +76,7 @@ async fn postgres_account_cleanup_is_preview_first_and_cascade_safe() {
                 csrf_hash: &SecretHash::new([44; 32]),
                 passkey_reauthenticated_at_rfc3339: "2035-01-01T00:00:00Z",
                 expires_at_rfc3339: "2035-02-01T00:00:00Z",
+                absolute_expires_at_rfc3339: "2035-08-01T00:00:00Z",
             })
             .await
             .unwrap()

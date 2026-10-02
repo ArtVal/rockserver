@@ -1504,8 +1504,10 @@ components:
       name: rockserver_browser
       description: >-
         Secure, HttpOnly, SameSite browser session cookie issued after a verified passkey ceremony.
-        State-changing browser requests also require the X-CSRF-Token header and the trusted Caddy
-        proxy proof; those transport checks are enforced outside the bearer scheme.
+        The session uses a 30-day sliding idle window renewed by authenticated traffic and is capped
+        by an absolute 180-day lifetime from the sign-in; the cookie's Max-Age matches the absolute
+        lifetime. State-changing browser requests also require the X-CSRF-Token header and the
+        trusted Caddy proxy proof; those transport checks are enforced outside the bearer scheme.
     RockCastBearer:
       type: http
       scheme: bearer

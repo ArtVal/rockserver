@@ -82,13 +82,15 @@ impl PostgresAccountStore {
             return Err(error);
         }
         sqlx::query(
-            "INSERT INTO browser_sessions (id, user_id, session_token_hash, csrf_token_hash, passkey_reauthenticated_at, expires_at) \
-             VALUES ($1, $2, $3, $4, now(), now() + interval '30 minutes')",
+            "INSERT INTO browser_sessions (id, user_id, session_token_hash, csrf_token_hash, passkey_reauthenticated_at, expires_at, absolute_expires_at) \
+             VALUES ($1, $2, $3, $4, now(), now() + ($5 * interval '1 minute'), now() + ($6 * interval '1 minute'))",
         )
         .bind(registration.browser_session.session_id)
         .bind(user_id)
         .bind(registration.browser_session.session_token_hash.as_bytes())
         .bind(registration.browser_session.csrf_hash.as_bytes())
+        .bind(crate::auth::BROWSER_SESSION_IDLE_MINUTES)
+        .bind(crate::auth::BROWSER_SESSION_ABSOLUTE_MINUTES)
         .execute(&mut *transaction)
         .await?;
         audit(&mut transaction, Some(user_id), None, "account_registered").await?;
