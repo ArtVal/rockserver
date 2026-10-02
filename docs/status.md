@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-02
 
+## DEPLOY: Server-side account sync for favorites and playback history deployed to staging (2026-10-02)
+
+Release commit `b3c0d1b` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
+- Images built:
+  - `rockserver:sha-b3c0d1be3ab48c27f09356a797b7c261e28c2781` (`sha256:357c45467d371a85cd1c90873bf80e3e854a1e1ec72b3f662f4d49524369f735`)
+  - `rockserver-caddy:sha-b3c0d1be3ab48c27f09356a797b7c261e28c2781`
+- Remote deploy status: `status=succeeded` (`log=/home/rockserver/logs/deploy-b3c0d1be3ab48c27f09356a797b7c261e28c2781.log`).
+- Remote readiness probe verified: `readiness=passed`.
+- Current working state: favorites and playback history synchronize seamlessly between browser sessions and native Windows RockCast clients using account-level PostgreSQL persistence (`favourite_records`, `history_records`); catalog stations are enriched automatically; favorites view decoupled from transient 20-station query limit.
+- Next step: monitor user feedback and telemetry in staging.
+
 ## PERSONAL-SYNC-WEB-001: Server-side account sync for favorites and playback history across devices (2026-10-02)
 
 Enabled bi-directional server synchronization for favorites and playback history across native devices (RockCast on Windows) and browser sessions:

@@ -1,5 +1,16 @@
 # Task log
 
+## 2026-10-02 — DEPLOY: Server-side account sync for favorites and playback history deployed to staging
+
+- Goal: build, deploy, and verify release commit `b3c0d1b` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-b3c0d1be3ab48c27f09356a797b7c261e28c2781` (`sha256:357c45467d371a85cd1c90873bf80e3e854a1e1ec72b3f662f4d49524369f735`) and `rockserver-caddy:sha-b3c0d1be3ab48c27f09356a797b7c261e28c2781`.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified remote execution: worker PID 1415707 completed with `status=succeeded`, remote readiness probe passed (`readiness=passed`).
+  - Verified live deployment: `https://rockplatform.win/` loaded new assets bundle (`index-B6iHmCX6.js` and `index-wqU82xOn.css`) with active `/api/v1/browser/sync` endpoint.
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `b3c0d1b`.
+
 ## 2026-10-02 — PERSONAL-SYNC-WEB-001: server-side account sync for favorites and playback history across devices
 
 - Goal: implement server-side synchronization of favorites and playback history for the web cabinet, syncing data across all paired devices (Windows RockCast, web browser) via PostgreSQL personal data storage, and fix favorites display bug.
