@@ -14,7 +14,12 @@ import { AdminApp } from "./admin";
 import { AccountCentre, type AccountState } from "./components/AccountCentre";
 import { PairingView, RegistrationView, type PairingState } from "./components/PairingView";
 import { deviceName, type JustConnected } from "./components/HardwareHud";
+import { maybeInstallVoiceFixture } from "./voiceFixture";
 import "./style.css";
+
+// Harness-only voice QA fixtures; inert unless the page is opened with the
+// `voice-fixture` URL parameter.
+maybeInstallVoiceFixture();
 
 const errorMessage = (error: unknown) => {
   const code = (error as ApiError)?.code;

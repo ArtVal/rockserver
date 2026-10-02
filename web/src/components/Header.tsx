@@ -1,6 +1,6 @@
 /**
- * Top application header providing the cabinet search bar,
- * account identity badge, and session logout controls.
+ * Top application header providing the cabinet search bar with the voice
+ * search trigger, account identity badge, and session logout controls.
  */
 export function Header({
   accountName,
@@ -10,6 +10,9 @@ export function Header({
   onSearchClear,
   onLogout,
   logoutBusy,
+  onVoiceSearch,
+  voiceActive = false,
+  voiceBusy = false,
 }: {
   accountName?: string;
   searchQuery: string;
@@ -18,6 +21,10 @@ export function Header({
   onSearchClear?: () => void;
   onLogout?: () => void;
   logoutBusy?: boolean;
+  /** Explicit user gesture that starts the voice permission + recording flow. */
+  onVoiceSearch?: () => void;
+  voiceActive?: boolean;
+  voiceBusy?: boolean;
 }) {
   return (
     <header class="app-header">
@@ -40,32 +47,47 @@ export function Header({
           </div>
         </div>
 
-        <form
-          class="header-search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSearchSubmit?.();
-          }}
-        >
-          <div class="search-input-wrap">
-            <span class="search-icon" aria-hidden="true">⌕</span>
-            <input
-              type="search"
-              value={searchQuery}
-              onInput={(e) => onSearchChange(e.currentTarget.value)}
-              placeholder="Поиск станции, жанра или потока..."
-              aria-label="Поиск станции, жанра или потока"
-            />
-            {searchQuery && (
-              <button type="button" class="header-search-clear" onClick={onSearchClear} aria-label="Очистить поиск">
-                ✕
+        <div class="header-search-row">
+          <form
+            class="header-search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSearchSubmit?.();
+            }}
+          >
+            <div class="search-input-wrap">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onInput={(e) => onSearchChange(e.currentTarget.value)}
+                placeholder="Поиск станции, жанра или потока..."
+                aria-label="Поиск станции, жанра или потока"
+              />
+              {searchQuery && (
+                <button type="button" class="header-search-clear" onClick={onSearchClear} aria-label="Очистить поиск">
+                  ✕
+                </button>
+              )}
+              <button type="submit" class="header-search-btn" aria-label="Искать">
+                Найти
               </button>
-            )}
-            <button type="submit" class="header-search-btn" aria-label="Искать">
-              Найти
+            </div>
+          </form>
+          {onVoiceSearch && (
+            <button
+              type="button"
+              class={`voice-mic-btn ${voiceActive ? "active" : ""}`}
+              onClick={onVoiceSearch}
+              disabled={voiceBusy}
+              aria-label="Голосовой поиск станции"
+              title="Голосовой поиск станции"
+              aria-pressed={voiceActive}
+            >
+              {voiceActive ? "●" : "🎤"}
             </button>
-          </div>
-        </form>
+          )}
+        </div>
 
         <div class="header-account">
           {accountName ? (

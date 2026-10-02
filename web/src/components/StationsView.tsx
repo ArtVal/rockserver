@@ -1,7 +1,7 @@
-import { useState } from "preact/hooks";
 import type { StationItem } from "../api";
+import { ListFooter, type ListPaging } from "./ListFooter";
 
-/** Renders catalog, favorites, and history with the same station actions. */
+/** Renders catalog, favorites, history, and voice candidates with the same station actions. */
 export function StationsView({
   stations,
   activeStationId,
@@ -17,6 +17,10 @@ export function StationsView({
   selectedTag = "",
   activeTab = "stations",
   favoriteCount = 0,
+  viewMode = "table",
+  onViewModeChange,
+  paging,
+  voiceQuery = "",
 }: {
   stations: StationItem[];
   activeStationId?: string;
@@ -32,22 +36,32 @@ export function StationsView({
   selectedTag?: string;
   activeTab?: string;
   favoriteCount?: number;
+  viewMode?: "grid" | "table";
+  onViewModeChange?: (mode: "grid" | "table") => void;
+  paging: ListPaging;
+  /** Recognized voice query whose candidates are shown instead of the text issuance. */
+  voiceQuery?: string;
 }) {
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  /** The full list size (synced records or server total), not only the shown slice. */
+  const totalListSize = paging.total ?? stations.length;
 
   const title =
     activeTab === "favorites"
       ? "Моё Избранное"
       : activeTab === "history"
       ? "История эфира"
+      : voiceQuery
+      ? "Голосовой поиск"
       : "Эфирные радиопотоки";
 
-  const subtitle = searchQuery
+  const subtitle = voiceQuery
+    ? `Голосовой запрос: «${voiceQuery}». Выберите станцию — воспроизведение не запускается автоматически.`
+    : searchQuery
     ? `Результаты поиска по запросу «${searchQuery}»`
     : activeTab === "favorites"
     ? `Сохранённые станции (${favoriteCount})`
     : activeTab === "history"
-    ? `Недавно прослушанные станции (${stations.length})`
+    ? `Недавно прослушанные станции (${totalListSize})`
     : selectedTag
     ? `Станции по фильтру #${selectedTag}`
     : "Выберите станцию и включите эфир";
@@ -87,7 +101,7 @@ export function StationsView({
               type="button"
               class={`mode-toggle-btn ${viewMode === "grid" ? "active" : ""}`}
               aria-pressed={viewMode === "grid"}
-              onClick={() => setViewMode("grid")}
+              onClick={() => onViewModeChange?.("grid")}
             >
               Сетка
             </button>
@@ -95,7 +109,7 @@ export function StationsView({
               type="button"
               class={`mode-toggle-btn ${viewMode === "table" ? "active" : ""}`}
               aria-pressed={viewMode === "table"}
-              onClick={() => setViewMode("table")}
+              onClick={() => onViewModeChange?.("table")}
             >
               Таблица
             </button>
@@ -133,6 +147,8 @@ export function StationsView({
               ? "В избранном пока нет станций"
               : activeTab === "history"
               ? "История прослушивания пока пуста"
+              : voiceQuery
+              ? "По голосовому запросу ничего не найдено"
               : "Станций не найдено"}
           </p>
           <p class="empty-hint">
@@ -140,6 +156,8 @@ export function StationsView({
               ? "Нажмите звёздочку ★ на карточке любой радиостанции, чтобы сохранить её в избранное."
               : activeTab === "history"
               ? "Включите любую станцию в каталоге, и она автоматически появится в вашей истории."
+              : voiceQuery
+              ? "Произнесите запрос иначе или введите его текстом в поиске выше — текстовый поиск остаётся доступен."
               : "Измените или очистите поиск, либо сбросьте фильтр жанра кнопкой #all."}
           </p>
         </div>
@@ -331,6 +349,9 @@ export function StationsView({
           </table>
         </div>
       )}
+
+      {/* Infinite-scroll footer: sentinel, loading, retry, manual load, end of list */}
+      {!loading && stations.length > 0 && <ListFooter paging={paging} />}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -24,6 +25,61 @@ const stage6YandexExpired = process.argv.includes("--stage6-yandex-expired");
 const stage6Slow = process.argv.includes("--stage6-slow");
 const stage6DeviceFail = process.argv.includes("--stage6-device-fail");
 const stage6YandexDown = process.argv.includes("--stage6-yandex-down");
+// Stage 8 fixtures drive paginated search: a 64-station pool served in 20-row
+// pages whose first rows repeat the previous page (ranking drift duplicates), a
+// counted first next-page failure, slow pages for mid-flight query changes, and
+// a synced favourites/history snapshot for progressive local reveal. Every
+// search request is logged so a QA pass can verify one request per page and no
+// catalog paging while scrolling personal lists.
+// Stage 9 adds a minimal RFC 6455 WebSocket voice fixture on
+// /api/v1/voice/stream: it validates the start→ready→audio→commit/cancel
+// order and chunk limits, logs protocol violations, and injects every voice
+// outcome (silence, empty result, timeouts, provider failure, HTTP 429
+// upgrade rejection, mid-recording disconnect, duplicate late result). Stage 9
+// implies the stage 8 cabinet fixtures; client-side microphone behaviour is
+// driven by the page URL parameter `voice-fixture=tone|silence|denied|…`.
+const stage9 = process.argv.includes("--stage9");
+const stage9Silence = process.argv.includes("--stage9-silence");
+const stage9Empty = process.argv.includes("--stage9-empty");
+const stage9Timeout = process.argv.includes("--stage9-timeout");
+const stage9Provider = process.argv.includes("--stage9-provider");
+const stage9RateLimited = process.argv.includes("--stage9-429");
+const stage9Drop = process.argv.includes("--stage9-drop");
+const stage9Late = process.argv.includes("--stage9-late");
+const stage8 = process.argv.includes("--stage8") || stage9;
+const stage8PageFail = process.argv.includes("--stage8-page-fail");
+const stage8Slow = process.argv.includes("--stage8-slow");
+let stage8SearchCalls = 0;
+let stage8PageFailures = 0;
+// Pool is derived per query so a mid-flight query change is observable: any row
+// from a superseded issuance would carry the old query in its name.
+const stage8Pools = new Map();
+const stage8PoolFor = (query) => {
+  const key = (query || "rock").slice(0, 40);
+  if (!stage8Pools.has(key)) {
+    stage8Pools.set(key, Array.from({ length: 64 }, (_, i) => ({
+      id: `st-${String(i + 1).padStart(2, "0")}`,
+      name: `${key} Radio ${String(i + 1).padStart(2, "0")}`,
+      tags: [key], country_code: "RU", codec: "AAC", bitrate_kbps: 128,
+    })));
+  }
+  return stage8Pools.get(key);
+};
+const stage8Favourites = Array.from({ length: 26 }, (_, i) => ({
+  record_id: `fav-${i + 1}`, station_id: `fav-st-${i + 1}`,
+  added_at: `2026-09-${String((i % 28) + 1).padStart(2, "0")}T10:00:00Z`,
+  updated_at: `2026-09-${String((i % 28) + 1).padStart(2, "0")}T10:00:00Z`,
+}));
+const stage8FavouriteStations = stage8Favourites.map((record, i) => ({
+  id: record.station_id, name: `Избранная волна ${i + 1}`, tags: ["rock"], country_code: "RU",
+}));
+const stage8History = Array.from({ length: 30 }, (_, i) => ({
+  record_id: `hist-${i + 1}`, station_id: `hist-st-${i + 1}`,
+  started_at: "2026-09-01T10:00:00Z",
+  last_played_at: `2026-10-0${(i % 9) + 1}T1${i % 10}:00:00Z`,
+  updated_at: `2026-10-0${(i % 9) + 1}T1${i % 10}:00:00Z`,
+  metadata: { name: `Историческая волна ${i + 1}` },
+}));
 let approveCalls = 0;
 let searchFailures = 0;
 let deviceCalls = 0;
@@ -76,10 +132,54 @@ const jsonError = (code) => JSON.stringify({ code, message: "fixture", request_i
 
 
 /** Serves built UI assets with deterministic, credential-free API responses for browser QA. */
-createServer(async (request, response) => {
+const server = createServer(async (request, response) => {
   const url = request.url ?? "";
   const stationMatch = url.match(/^\/api\/v1\/stations\/([^/]+)\/(stream|events|now-playing)$/);
   const deviceMatch = url.match(/^\/api\/v1\/browser\/devices\/([^/?]+)$/);
+  if (stage8 && url === "/api/v1/auth/browser-session") {
+    response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    return response.end(JSON.stringify({ account_display_name: "Алексей", csrf_token: "test-csrf" }));
+  }
+  if (stage8 && url === "/api/v1/browser/account") {
+    response.writeHead(200, { "content-type": "application/json" });
+    return response.end(JSON.stringify({ account_display_name: "Алексей", device_limit: 5, devices: [], yandex_home_connected: false }));
+  }
+  if (stage8 && url === "/api/v1/browser/sync") {
+    response.writeHead(200, { "content-type": "application/json" });
+    return response.end(JSON.stringify({
+      server_revision: 1, server_time: new Date().toISOString(),
+      favourites: { records: stage8Favourites },
+      history: { records: stage8History },
+      stations: stage8FavouriteStations,
+    }));
+  }
+  if (stage8 && url === "/api/v1/search") {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const { query, limit, offset } = JSON.parse(Buffer.concat(chunks).toString());
+    stage8SearchCalls += 1;
+    console.log(`[stage8] search #${stage8SearchCalls} "${query}" offset=${offset} limit=${limit}`);
+    if (stage8Slow) await delayed(1200);
+    if (offset > 0 && stage8PageFail && stage8PageFailures++ === 0) {
+      response.writeHead(503, { "content-type": "application/json" });
+      return response.end(jsonError("server_unavailable"));
+    }
+    const pageOffset = Math.max(0, Number(offset) || 0);
+    const pageSize = Math.max(1, Math.min(Number(limit) || 20, 20));
+    const pool = stage8PoolFor(query);
+    const page = pool.slice(pageOffset, pageOffset + pageSize);
+    // Simulate ranking drift: pages after the first repeat the two previous rows.
+    if (pageOffset > 0 && page.length > 2) {
+      page[0] = pool[pageOffset - 2];
+      page[1] = pool[pageOffset - 1];
+    }
+    response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    return response.end(JSON.stringify({
+      request_id: "fixture", stations: page,
+      total: pool.length,
+      has_more: pageOffset + page.length < pool.length,
+    }));
+  }
   if (stage6 && url === "/api/v1/browser/account") {
     response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     return response.end(JSON.stringify({ account_display_name: "Алексей", device_limit: 5, devices: stage6State.devices, yandex_home_connected: stage6State.yandexConnected }));
@@ -280,5 +380,189 @@ createServer(async (request, response) => {
       return response.end(asset);
     } catch { response.writeHead(404); return response.end(); }
   }
+  if (url === "/voice-worklet.js") {
+    try {
+      const asset = await readFile(resolve("dist/voice-worklet.js"));
+      response.writeHead(200, { "content-type": "text/javascript" });
+      return response.end(asset);
+    } catch { response.writeHead(404); return response.end(); }
+  }
   response.writeHead(200, { "content-type": "text/html" }); response.end(index);
-}).listen(port, "127.0.0.1");
+});
+
+// ---- Stage 9: minimal RFC 6455 server for /api/v1/voice/stream ----
+// Only what the voice client needs: handshake, masked client-frame parsing,
+// unmasked text/close/pong replies. Protocol violations are logged so a QA
+// pass can assert the real client never commits them.
+const VOICE_WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+let stage9Sessions = 0;
+
+const wsFrame = (payload, opcode = 1) => {
+  const length = payload.length;
+  const header = length < 126
+    ? Buffer.from([0x80 | opcode, length])
+    : length < 65536
+    ? Buffer.from([0x80 | opcode, 126, length >> 8, length & 0xff])
+    : Buffer.concat([Buffer.from([0x80 | opcode, 127]), (() => { const b = Buffer.alloc(8); b.writeBigUInt64BE(BigInt(length)); return b; })()]);
+  return Buffer.concat([header, payload]);
+};
+
+// The first candidate reuses the stage 4 playable station id "one" so a QA
+// pass can verify real audio pause/restore around a voice recording.
+const fixtureStations = (label, count) => Array.from({ length: count }, (_, i) => ({
+  id: i === 0 ? "one" : `voice-st-${i + 1}`,
+  name: `${label} радио ${i + 1}`,
+  stream_url: `http://127.0.0.1:${port}/api/v1/stations/${i === 0 ? "one" : `voice-st-${i + 1}`}/stream`,
+  homepage_url: "",
+  favicon_url: "",
+  tags: ["rock"],
+  language: "ru",
+  country_code: "RU",
+  codec: "AAC",
+  bitrate_kbps: 128,
+  score: Math.round((0.95 - i * 0.1) * 100) / 100,
+  reason: "fixture",
+  health: "unknown",
+}));
+
+/** One deterministic voice fixture session over an upgraded socket. */
+const startVoiceFixtureSession = (socket) => {
+  stage9Sessions += 1;
+  const sessionId = stage9Sessions;
+  const requestId = `fixture-voice-${sessionId}`;
+  const log = (message) => console.log(`[stage9] session#${sessionId} ${message}`);
+  let buffer = Buffer.alloc(0);
+  let ready = false;
+  let committed = false;
+  let cancelled = false;
+  let finished = false;
+  let audioBytes = 0;
+
+  const sendText = (event) => socket.write(wsFrame(Buffer.from(JSON.stringify(event))));
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    setTimeout(() => {
+      try { socket.write(wsFrame(Buffer.alloc(0), 8)); socket.destroy(); } catch { /* already gone */ }
+    }, 50);
+  };
+  const sendError = (code, message) => {
+    sendText({ type: "error", code, message, request_id: requestId, details: {} });
+    finish();
+  };
+  const sendResult = (transcript, stations) => {
+    sendText({
+      type: "result",
+      request_id: requestId,
+      transcript,
+      normalized_query: { original: transcript, locale: "ru-RU", terms: [], tags: [], language: "ru", country_code: null },
+      selected_station: stations[0] ?? null,
+      stations,
+    });
+  };
+
+  const handleText = (payload) => {
+    let event;
+    try { event = JSON.parse(payload.toString("utf8")); } catch { log("violation: non-JSON text frame"); sendError("protocol_error", "fixture"); return; }
+    if (event.type === "start") {
+      if (ready) { log("violation: duplicate start"); sendError("protocol_error", "fixture"); return; }
+      if (event.sample_rate_hz !== 16000) { log(`violation: sample_rate_hz=${event.sample_rate_hz}`); sendError("validation_failed", "fixture"); return; }
+      if (!Number.isInteger(event.limit) || event.limit < 1 || event.limit > 10) { log(`violation: limit=${event.limit}`); sendError("validation_failed", "fixture"); return; }
+      log(`start locale=${event.locale} limit=${event.limit} mode=${event.recognizer_mode ?? "buffered_v1"}`);
+      sendText({ type: "ready", request_id: requestId, audio_format: "pcm_s16le", sample_rate_hz: 16000 });
+      ready = true;
+      if (stage9Provider) { log("provider unavailable injected right after ready"); sendError("speech_provider_unavailable", "fixture"); }
+      return;
+    }
+    if (event.type === "commit") {
+      if (!ready || committed || cancelled) { log("violation: commit out of order"); sendError("protocol_error", "fixture"); return; }
+      committed = true;
+      log(`commit audio_bytes=${audioBytes}`);
+      if (stage9Silence) { sendError("speech_not_recognized", "fixture"); return; }
+      if (stage9Timeout) { sendError("voice_timeout", "fixture"); return; }
+      const transcript = stage9Empty ? "несуществующее радио" : "рок радиостанцию";
+      if (!stage9Empty) sendText({ type: "transcript", request_id: requestId, transcript, is_final: true });
+      sendResult(transcript, fixtureStations(stage9Empty ? "Пустое" : "Рок", stage9Empty ? 0 : 6));
+      if (stage9Late) { log("late duplicate result injected"); sendResult("поздний дубль", fixtureStations("Дубль", 6)); }
+      finish();
+      return;
+    }
+    if (event.type === "cancel") {
+      if (cancelled || !ready) { log("violation: cancel out of order"); sendError("protocol_error", "fixture"); return; }
+      cancelled = true;
+      log("cancel");
+      sendError("cancelled", "fixture");
+      return;
+    }
+    log(`violation: unexpected text event ${JSON.stringify(event.type)}`);
+    sendError("protocol_error", "fixture");
+  };
+
+  const handleBinary = (payload) => {
+    if (!ready) { log("violation: audio before ready"); sendError("protocol_error", "fixture"); return; }
+    if (payload.length === 0 || payload.length % 2 !== 0 || payload.length > 32768) {
+      log(`violation: chunk ${payload.length} bytes`);
+      sendError("audio_chunk_invalid", "fixture");
+      return;
+    }
+    audioBytes += payload.length;
+    if (audioBytes > 2 * 1024 * 1024) { log("violation: session above 2 MiB"); sendError("audio_too_large", "fixture"); return; }
+    if (stage9Drop && audioBytes > 32000) { log("drop connection mid-recording"); finished = true; socket.destroy(); }
+  };
+
+  socket.on("data", (chunk) => {
+    if (finished) return;
+    buffer = Buffer.concat([buffer, chunk]);
+    for (;;) {
+      if (buffer.length < 2) return;
+      const opcode = buffer[0] & 0x0f;
+      const masked = (buffer[1] & 0x80) !== 0;
+      let length = buffer[1] & 0x7f;
+      let offset = 2;
+      if (length === 126) {
+        if (buffer.length < 4) return;
+        length = buffer.readUInt16BE(2);
+        offset = 4;
+      } else if (length === 127) {
+        if (buffer.length < 10) return;
+        length = Number(buffer.readBigUInt64BE(2));
+        offset = 10;
+      }
+      const maskOffset = offset;
+      if (masked) offset += 4;
+      if (buffer.length < offset + length) return;
+      const payload = Buffer.from(buffer.subarray(offset, offset + length));
+      if (masked) {
+        const mask = buffer.subarray(maskOffset, maskOffset + 4);
+        for (let i = 0; i < payload.length; i += 1) payload[i] ^= mask[i % 4];
+      }
+      buffer = buffer.subarray(offset + length);
+      if (opcode === 0x1) handleText(payload);
+      else if (opcode === 0x2) handleBinary(payload);
+      else if (opcode === 0x8) { log("client closed"); finished = true; socket.destroy(); return; }
+      else if (opcode === 0x9) socket.write(wsFrame(payload, 0xa));
+    }
+  });
+  socket.on("error", () => { finished = true; });
+};
+
+server.on("upgrade", (request, socket) => {
+  const path = (request.url ?? "").split("?")[0];
+  if (!stage9 || path !== "/api/v1/voice/stream") { socket.destroy(); return; }
+  if (stage9RateLimited) {
+    console.log("[stage9] voice upgrade rejected with HTTP 429");
+    socket.write("HTTP/1.1 429 Too Many Requests\r\nRetry-After: 60\r\nConnection: close\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+  const key = request.headers["sec-websocket-key"];
+  if (!key) { socket.destroy(); return; }
+  const accept = createHash("sha1").update(`${key}${VOICE_WS_GUID}`).digest("base64");
+  socket.write(
+    `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`
+  );
+  console.log(`[stage9] voice stream upgrade #${stage9Sessions + 1}`);
+  startVoiceFixtureSession(socket);
+});
+
+server.listen(port, "127.0.0.1");

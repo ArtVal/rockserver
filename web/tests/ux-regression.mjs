@@ -157,3 +157,121 @@ test("stage 6 renders honest device cards, QR empty state, and every Yandex Home
   assert.match(harness, /yandex_home_reconnect_required/);
   assert.match(harness, /#\$\{deviceCalls\} for \$\{deviceMatch\[1\]\}/);
 });
+
+test("stage 8 defaults to the table view and pages the catalog one request at a time", async () => {
+  const view = await readFile(new URL("../src/components/StationsView.tsx", import.meta.url), "utf8");
+  const centre = await readFile(new URL("../src/components/AccountCentre.tsx", import.meta.url), "utf8");
+  const pagesHook = await readFile(new URL("../src/useStationPages.ts", import.meta.url), "utf8");
+  const paging = await readFile(new URL("../src/paging.ts", import.meta.url), "utf8");
+  const footer = await readFile(new URL("../src/components/ListFooter.tsx", import.meta.url), "utf8");
+  const harness = await readFile(new URL("./browser-harness.mjs", import.meta.url), "utf8");
+  // Table is the default catalog presentation and the choice is owned by the cabinet,
+  // so it survives section switches.
+  assert.match(centre, /useState<"grid" \| "table">\("table"\)/);
+  assert.match(centre, /onViewModeChange=\{setViewMode\}/);
+  // One page request at a time; a ref guard covers the gap before the state update.
+  assert.match(pagesHook, /const busy = useRef\(false\)/);
+  assert.match(pagesHook, /current\.loading \|\| current\.loadingMore \|\| !current\.hasMore \|\| busy\.current/);
+  // Late responses of a superseded issuance are dropped by the generation counter.
+  assert.match(pagesHook, /generation\.current \+= 1/);
+  assert.match(pagesHook, /if \(gen !== generation\.current\) return;/);
+  // Next offset counts server page sizes; duplicate rows merge by station ID (paging.mjs).
+  assert.match(paging, /const serverOffset = previousOffset \+ page\.length/);
+  assert.match(paging, /new Set\(current\.map\(\(station\) => station\.id\)\)/);
+  assert.match(paging, /MAX_SEARCH_OFFSET = 10_000/);
+  assert.match(paging, /if \(page\.length === 0\) hasMore = false/);
+  // The server offset boundary is stated, not silently lifted.
+  assert.match(footer, /Достигнут предел постраничного поиска/);
+  // Footer exposes sentinel preloading, loading, retry, manual load, and end states.
+  assert.match(footer, /IntersectionObserver/);
+  assert.match(footer, /rootMargin: "600px 0px"/);
+  assert.match(footer, /Загрузка станций…/);
+  assert.match(footer, /Повторить/);
+  assert.match(footer, /Загрузить ещё/);
+  assert.match(footer, /Показаны все/);
+  assert.match(view, /<ListFooter paging=\{paging\} \/>/);
+  assert.match(centre, /onLoadMore: pages\.loadMore/);
+  // Personal tabs reveal already-synced records in slices without catalog page
+  // requests: the paging hook runs once for the catalog issuance only.
+  assert.equal((centre.match(/useStationPages\(/g) ?? []).length, 1);
+  assert.match(centre, /PERSONAL_PAGE_SIZE = 24/);
+  assert.match(centre, /filteredPersonal\.slice\(0, personalVisible\)/);
+  assert.match(centre, /setPersonalVisible\(\(visible\) => visible \+ PERSONAL_PAGE_SIZE\)/);
+  assert.match(centre, /loadingMore: false,\s*\n\s*error: "",/);
+  // Counters describe the full list, not only the shown slice.
+  assert.match(view, /paging\.total \?\? stations\.length/);
+  // Harness fixtures page a 64-station pool with drift duplicates, a first
+  // next-page failure, slow pages for mid-flight query changes, and synced
+  // favourites/history for progressive local reveal.
+  for (const flag of ["--stage8", "--stage8-page-fail", "--stage8-slow"]) assert.match(harness, new RegExp(flag));
+  assert.match(harness, /\[stage8\] search/);
+  assert.match(harness, /has_more/);
+});
+
+test("stage 9 voice search is an explicit mic button beside the single search with anonymous same-origin streaming", async () => {
+  const header = await readFile(new URL("../src/components/Header.tsx", import.meta.url), "utf8");
+  const centre = await readFile(new URL("../src/components/AccountCentre.tsx", import.meta.url), "utf8");
+  const view = await readFile(new URL("../src/components/StationsView.tsx", import.meta.url), "utf8");
+  const voice = await readFile(new URL("../src/voice.ts", import.meta.url), "utf8");
+  const pcm = await readFile(new URL("../src/voicePcm.ts", import.meta.url), "utf8");
+  const browser = await readFile(new URL("../src/voiceBrowser.ts", import.meta.url), "utf8");
+  const hook = await readFile(new URL("../src/useVoiceSearch.ts", import.meta.url), "utf8");
+  const fixture = await readFile(new URL("../src/voiceFixture.ts", import.meta.url), "utf8");
+  const harness = await readFile(new URL("./browser-harness.mjs", import.meta.url), "utf8");
+  const appSource = await readFile(new URL("../src/app.tsx", import.meta.url), "utf8");
+  // One search box remains; the mic trigger is an explicit labelled button.
+  assert.match(header, /voice-mic-btn/);
+  assert.match(header, /aria-label="Голосовой поиск станции"/);
+  assert.match(header, /onVoiceSearch/);
+  assert.equal((header.match(/type="search"/g) ?? []).length, 1);
+  // Protocol: PCM s16le 16 kHz frames, buffered_v1, limit capped at 10, cancel
+  // frame, exactly one terminal, and no result applied after cancel.
+  assert.match(voice, /sample_rate_hz: VOICE_STREAM_LIMITS\.sampleRateHz/);
+  assert.match(voice, /recognizer_mode: "buffered_v1"/);
+  assert.match(voice, /Math\.min\(Math\.max\(options\.limit \?\? 10, 1\), 10\)/);
+  assert.match(voice, /type: "cancel"/);
+  assert.match(voice, /terminalSeen/);
+  assert.match(voice, /if \(this\.cancelled\) return;/);
+  // Real anti-aliased rate conversion, not naive decimation and not MediaRecorder.
+  assert.match(pcm, /blackman/);
+  assert.match(pcm, /sinc\(/);
+  assert.match(pcm, /PcmDownsampler/);
+  // Anonymous same-origin WebSocket: no Authorization header, no device or
+  // deployment tokens anywhere in the voice pipeline.
+  assert.match(browser, /\/api\/v1\/voice\/stream/);
+  assert.match(browser, /new WebSocket\(/);
+  assert.match(browser, /PcmDownsampler/);
+  assert.doesNotMatch(browser + voice + hook + fixture, /new MediaRecorder|MediaRecorder\./);
+  // No credential usage (comments may explain why they are absent).
+  assert.doesNotMatch(browser + voice + hook + fixture, /setRequestHeader|Bearer |deployment_token|device_secret|access_token/);
+  // Lifecycle: mic, audio graph, and socket are released on unmount and pagehide.
+  assert.match(hook, /pagehide/);
+  assert.match(hook, /sessionRef\.current\?\.dispose\(\)/);
+  assert.match(voice, /close\(\)/);
+  // Recording pauses the player and restores only what it paused itself.
+  assert.match(centre, /wasPlayingBeforeVoiceRef\.current = isPlaying;/);
+  assert.match(centre, /currentStation\?\.id === stationIdBeforeVoiceRef\.current/);
+  assert.match(centre, /setIsPlaying\(false\)/);
+  assert.match(centre, /setIsPlaying\(true\)/);
+  // Voice candidates are their own finite issuance: no re-query into the text
+  // search, no infinite scroll, and a distinct subtitle and empty state.
+  assert.match(centre, /voiceResultActive\s*\?\s*voice\.stations/);
+  assert.match(centre, /hasMore: false,\s*\n\s*loadingMore: false,/);
+  assert.match(centre, /voiceQuery=\{voiceResultActive \? voice\.transcript : ""\}/);
+  assert.match(view, /Голосовой запрос: «\$\{voiceQuery\}»/);
+  assert.match(view, /По голосовому запросу ничего не найдено/);
+  assert.match(view, /воспроизведение не запускается автоматически/);
+  // Fixture seam is URL-parameter-gated and credential-free.
+  assert.match(fixture, /voice-fixture/);
+  assert.match(appSource, /maybeInstallVoiceFixture\(\)/);
+  assert.match(fixture, /NotAllowedError/);
+  assert.match(fixture, /NotFoundError/);
+  // Harness serves the worklet and a validating voice WebSocket fixture for
+  // every outcome family.
+  assert.match(harness, /voice-worklet\.js/);
+  assert.match(harness, /Sec-WebSocket-Accept/);
+  for (const flag of ["--stage9", "--stage9-silence", "--stage9-empty", "--stage9-timeout", "--stage9-provider", "--stage9-429", "--stage9-drop", "--stage9-late"])
+    assert.match(harness, new RegExp(flag));
+  assert.match(harness, /speech_not_recognized/);
+  assert.match(harness, /audio before ready/);
+});

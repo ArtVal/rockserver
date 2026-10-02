@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { ComponentChildren } from "preact";
-import { api, type BrowserAccount, type BrowserDevice, type StationItem } from "../api";
+import type { BrowserAccount, BrowserDevice, StationItem } from "../api";
 import { usePersonalSync } from "../usePersonalSync";
+import { useStationPages } from "../useStationPages";
+import { useVoiceSearch } from "../useVoiceSearch";
 import { Header } from "./Header";
 import { SidebarNav, type NavTab } from "./SidebarNav";
 import { StationsView } from "./StationsView";
+import type { ListPaging } from "./ListFooter";
+import { VoiceSearchPanel } from "./VoiceSearchPanel";
 import { HardwareHud, type JustConnected } from "./HardwareHud";
 import { YandexHomeCard } from "./YandexHomeCard";
 import { PlayerDeck } from "./PlayerDeck";
 
 const GENRE_PRESETS = ["all", "rock", "electronic", "synthwave", "jazz", "classical", "ambient"];
+
+/** How many already-synced favourite/history records one reveal step shows. */
+const PERSONAL_PAGE_SIZE = 24;
 
 export type AccountState = "loading" | "anonymous" | "authenticated" | "expired" | "unavailable";
 
@@ -81,24 +88,25 @@ export function AccountCentre({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
-  const [searchError, setSearchError] = useState("");
   const [searchAttempt, setSearchAttempt] = useState(0);
+  // Table is the default catalog view; the choice survives section switches.
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+  // Progressive reveal window for favourites/history; reset when the context changes.
+  const [personalVisible, setPersonalVisible] = useState(PERSONAL_PAGE_SIZE);
+  // Voice search owns its own finite candidate list; see the effect below for
+  // how it replaces the catalog issuance without a second text query.
+  const voice = useVoiceSearch();
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
   };
 
-  const stationCache = useRef<Map<string, StationItem[]>>(new Map());
-
   const handleSearchSubmit = (query?: string) => {
     const q = (query !== undefined ? query : searchQuery).trim();
     if (q) {
-      stationCache.current.delete(q);
       setActiveSearch(q);
       setSelectedTag("");
     } else {
-      const activeQuery = selectedTag || "rock";
-      stationCache.current.delete(activeQuery);
       setActiveSearch("");
     }
     if (activeTab !== "stations" && activeTab !== "favorites" && activeTab !== "history") {
@@ -110,14 +118,12 @@ export function AccountCentre({
   const handleSearchClear = () => {
     setSearchQuery("");
     setActiveSearch("");
-    setSearchError("");
   };
 
   const handleTagSelect = (tag: string) => {
     setSelectedTag(tag);
     setSearchQuery("");
     setActiveSearch("");
-    setSearchError("");
     if (activeTab !== "stations") {
       setActiveTab("stations");
     }
@@ -140,8 +146,12 @@ export function AccountCentre({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const [stations, setStations] = useState<StationItem[]>([]);
-  const [stationsLoading, setStationsLoading] = useState(false);
+  useEffect(() => {
+    setPersonalVisible(PERSONAL_PAGE_SIZE);
+  }, [activeTab, searchQuery]);
+
+  // Catalog issuance paging: one request at a time, server-sized offsets, cached per query.
+  const pages = useStationPages(activeSearch.trim() || selectedTag || "rock", searchAttempt);
   const {
     favorites,
     favoriteStations,
@@ -170,60 +180,47 @@ export function AccountCentre({
     }
   };
 
-  // Search or fetch stations when active search or selected tag changes.
-  // Note: Backend limits max items per request to 20.
+  // While voice recording is live (or permission is being requested) the
+  // player is paused so the current broadcast cannot leak into recognition.
+  // Only the state the voice session itself paused is restored afterwards: a
+  // stream that was already stopped stays stopped, and manual play/pause or a
+  // station change during recording always wins.
+  const voiceSessionActive =
+    voice.status === "requesting" || voice.status === "recording" || voice.status === "processing";
+  const voiceWasActiveRef = useRef(false);
+  const wasPlayingBeforeVoiceRef = useRef(false);
+  const stationIdBeforeVoiceRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    let active = true;
-    const query = activeSearch.trim() || selectedTag || "rock";
-
-    // Fast-path: return cached stations immediately if available in session
-    const cached = stationCache.current.get(query);
-    if (cached && cached.length > 0) {
-      setStations(cached);
-      setStationsLoading(false);
-      setSearchError("");
-      return;
+    if (voiceSessionActive && !voiceWasActiveRef.current) {
+      voiceWasActiveRef.current = true;
+      wasPlayingBeforeVoiceRef.current = isPlaying;
+      stationIdBeforeVoiceRef.current = currentStation?.id;
+      if (isPlaying) setIsPlaying(false);
+    } else if (!voiceSessionActive && voiceWasActiveRef.current) {
+      voiceWasActiveRef.current = false;
+      if (
+        wasPlayingBeforeVoiceRef.current &&
+        !isPlaying &&
+        currentStation?.id === stationIdBeforeVoiceRef.current
+      )
+        setIsPlaying(true);
     }
+  }, [voiceSessionActive, isPlaying, currentStation?.id]);
 
-    const loadStations = async () => {
-      setStationsLoading(true);
-      setSearchError("");
-      try {
-        const res = await api.searchStations(query, 20);
-        if (active) {
-          const list = res.stations ?? [];
-          setStations(list);
-          if (list.length > 0) {
-            stationCache.current.set(query, list);
-          }
-        }
-      } catch (err: unknown) {
-        if (active) {
-          // Do NOT clear existing stations so cards do not disappear!
-          const apiErr = err as { code?: string; message?: string; status?: number };
-          const isRateLimited =
-            apiErr?.code === "rate_limited" ||
-            apiErr?.status === 429 ||
-            (typeof apiErr?.message === "string" && apiErr.message.includes("rate limit"));
-          if (isRateLimited) {
-            setSearchError("Слишком частые запросы. Подождите несколько секунд перед следующим переключением.");
-          } else {
-            setSearchError("Не удалось загрузить станции. Попробуйте повторить запрос.");
-          }
-        }
-      } finally {
-        if (active) setStationsLoading(false);
-      }
-    };
-    void loadStations();
-    return () => {
-      active = false;
-    };
-  }, [activeSearch, selectedTag, searchAttempt]);
+  // Voice results are their own issuance: the recognized transcript is never
+  // re-run through the text search, and any text query or genre filter the
+  // user starts dismisses them back to the paged catalog.
+  const voiceResultActive = voice.status === "result";
+  useEffect(() => {
+    if (voiceResultActive) setActiveTab("stations");
+  }, [voiceResultActive]);
+  useEffect(() => {
+    if (voiceResultActive && (activeSearch || selectedTag)) voice.dismiss();
+  }, [voiceResultActive, activeSearch, selectedTag, voice]);
 
   const handleToggleFavorite = (stationId: string) => {
     const stationItem =
-      stations.find((s) => s.id === stationId) ||
+      pages.stations.find((s) => s.id === stationId) ||
       favoriteStations.find((s) => s.id === stationId) ||
       history.find((s) => s.id === stationId) ||
       (currentStation?.id === stationId ? currentStation : undefined);
@@ -245,8 +242,8 @@ export function AccountCentre({
   };
 
   const handleTogglePlay = () => {
-    if (!currentStation && stations.length > 0) {
-      handlePlayStation(stations[0]);
+    if (!currentStation && pages.stations.length > 0) {
+      handlePlayStation(pages.stations[0]);
     } else {
       setIsPlaying(!isPlaying);
     }
@@ -264,19 +261,62 @@ export function AccountCentre({
 
   // Build the list from the same IDs that drive each favorite button and count.
   const knownFavorites = new Map(
-    [...favoriteStations, ...history, ...stations, ...(currentStation ? [currentStation] : [])]
+    [...favoriteStations, ...history, ...pages.stations, ...(currentStation ? [currentStation] : [])]
       .map((station) => [station.id, station] as const)
   );
   const savedStations = favorites.map((id) => knownFavorites.get(id) ?? {
     id, name: "Станция без названия", tags: [],
   });
 
-  const displayedStations =
-    activeTab === "favorites"
-      ? filterBySearch(savedStations)
-      : activeTab === "history"
-      ? filterBySearch(history)
-      : stations;
+  // Personal tabs reveal already-synced records in slices; the catalog tab shows
+  // the paged issuance. Slicing never drops data: counters show the full synced
+  // totals and "Показать ещё" reaches every record without extra network calls.
+  const isPersonalTab = activeTab === "favorites" || activeTab === "history";
+  const filteredPersonal = isPersonalTab
+    ? filterBySearch(activeTab === "favorites" ? savedStations : history)
+    : [];
+  const personalShown = filteredPersonal.slice(0, personalVisible);
+
+  // The voice candidate list is finite (the protocol caps it at 10), so it
+  // never pages and never merges with the offset-based text issuance.
+  const displayedStations = voiceResultActive
+    ? voice.stations
+    : isPersonalTab
+    ? personalShown
+    : pages.stations;
+
+  const listPaging: ListPaging = voiceResultActive
+    ? {
+        shownCount: voice.stations.length,
+        total: voice.stations.length,
+        hasMore: false,
+        loadingMore: false,
+        error: "",
+        boundary: false,
+        itemLabel: "станции",
+        onLoadMore: () => undefined,
+      }
+    : isPersonalTab
+    ? {
+        shownCount: personalShown.length,
+        total: filteredPersonal.length,
+        hasMore: personalShown.length < filteredPersonal.length,
+        loadingMore: false,
+        error: "",
+        boundary: false,
+        itemLabel: "записи",
+        onLoadMore: () => setPersonalVisible((visible) => visible + PERSONAL_PAGE_SIZE),
+      }
+    : {
+        shownCount: pages.stations.length,
+        total: pages.total,
+        hasMore: pages.hasMore,
+        loadingMore: pages.loadingMore,
+        error: pages.moreError,
+        boundary: pages.boundary,
+        itemLabel: "станции",
+        onLoadMore: pages.loadMore,
+      };
 
   const handleNextStation = () => {
     if (!displayedStations.length) return;
@@ -344,6 +384,9 @@ export function AccountCentre({
         onSearchClear={handleSearchClear}
         onLogout={onLogout}
         logoutBusy={logoutBusy}
+        onVoiceSearch={voice.start}
+        voiceActive={voiceSessionActive}
+        voiceBusy={voiceSessionActive}
       />
 
       <main class="cabinet-main-grid">
@@ -358,6 +401,18 @@ export function AccountCentre({
               {accountMessage}
             </p>
           )}
+
+          <VoiceSearchPanel
+            status={voice.status}
+            transcript={voice.transcript}
+            interim={voice.interim}
+            failure={voice.failure}
+            elapsedMs={voice.elapsedMs}
+            onFinish={voice.finish}
+            onCancel={voice.cancel}
+            onDismiss={voice.dismiss}
+            onRetry={voice.start}
+          />
 
           {activeTab === "devices" ? (
             <div class="cabinet-center-devices">
@@ -398,20 +453,24 @@ export function AccountCentre({
                 </div>
               )}
               <StationsView
-              stations={displayedStations}
-              activeStationId={currentStation?.id}
-              isPlaying={isPlaying}
-              currentTrackTitle={trackTitle}
-              onPlayStation={handlePlayStation}
-              favorites={favorites}
-              onToggleFavorite={handleToggleFavorite}
-              loading={activeTab === "stations" && stationsLoading}
-              searchQuery={searchQuery}
-              onSearchSubmit={handleSearchSubmit}
-              searchError={activeTab === "stations" ? searchError : ""}
-              selectedTag={selectedTag}
-              activeTab={activeTab}
-              favoriteCount={savedStations.length}
+                stations={displayedStations}
+                activeStationId={currentStation?.id}
+                isPlaying={isPlaying}
+                currentTrackTitle={trackTitle}
+                onPlayStation={handlePlayStation}
+                favorites={favorites}
+                onToggleFavorite={handleToggleFavorite}
+                loading={activeTab === "stations" && pages.loading && !voiceResultActive}
+                searchQuery={searchQuery}
+                onSearchSubmit={handleSearchSubmit}
+                searchError={activeTab === "stations" && !voiceResultActive ? pages.error : ""}
+                selectedTag={selectedTag}
+                activeTab={activeTab}
+                favoriteCount={savedStations.length}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                paging={listPaging}
+                voiceQuery={voiceResultActive ? voice.transcript : ""}
               />
             </>
           )}
