@@ -26,8 +26,9 @@ export const formatDate = (value: string) => {
 };
 
 /**
- * Hardware HUD component rendering connected RockCast and RockMobile client devices,
- * device pairing status, rename/revoke controls, and device security guidance.
+ * Hardware HUD component rendering connected RockCast and RockMobile client devices
+ * as cabinet cards with the product type, the session-derived status, connection
+ * dates, rename/revoke controls, and QR pairing guidance.
  */
 export function HardwareHud({
   account,
@@ -45,14 +46,17 @@ export function HardwareHud({
   const limitReached = account.devices.length >= account.device_limit;
 
   return (
-    <div class="hardware-hud space-y-6">
-      <section class="deck-panel hardware-deck">
+    <div class="hardware-hud">
+      <section class="deck-panel hardware-deck" aria-label="Подключённые устройства">
         <div class="panel-header-row">
           <div class="hardware-title-wrap">
             <span class="hud-status-dot glow-cyan" />
             <h2>Подключённые устройства</h2>
           </div>
-          <span class="device-limit-pill font-mono-code" title={`Подключено ${account.devices.length} из ${account.device_limit} устройств`}>
+          <span
+            class="device-limit-pill font-mono-code"
+            title={`Подключено ${account.devices.length} из ${account.device_limit} устройств`}
+          >
             {account.devices.length} / {account.device_limit}
           </span>
         </div>
@@ -64,9 +68,14 @@ export function HardwareHud({
         )}
 
         {account.devices.length === 0 ? (
-          <p class="empty-devices-text">
-            Подключённых устройств пока нет. Откройте RockMobile или RockCast и начните подключение там.
-          </p>
+          <div class="devices-empty" role="status">
+            <strong class="devices-empty-title">Подключённых устройств пока нет</strong>
+            <p class="devices-empty-text">
+              Начните подключение в приложении RockCast или RockMobile: оно покажет QR-код.
+              Отсканируйте его камерой телефона и подтвердите запрос в открывшемся браузере —
+              устройство появится в этом списке.
+            </p>
+          </div>
         ) : (
           <ul class="devices" aria-label="Список подключённых устройств">
             {account.devices.map((device) => {
@@ -89,9 +98,14 @@ export function HardwareHud({
                       <span class="device-type-icon" aria-hidden="true">
                         {isMobile ? "📱" : "💻"}
                       </span>
-                      <strong class="device-name-text" title={deviceName(device)}>
-                        {deviceName(device)}
-                      </strong>
+                      <div class="device-name-wrap">
+                        <strong class="device-name-text" title={deviceName(device)}>
+                          {deviceName(device)}
+                        </strong>
+                        <span class="device-product-tag font-mono-code">
+                          {deviceProductName(device.device_type)}
+                        </span>
+                      </div>
                     </div>
                     <span class={`device-status-badge ${isActive ? "active" : "inactive"}`}>
                       <span class={`status-circle ${isActive ? "active" : "inactive"}`} />
@@ -104,10 +118,15 @@ export function HardwareHud({
                       <span class="meta-label">Подключено</span>
                       <span class="meta-val">{formatDate(device.connected_at)}</span>
                     </div>
-                    {device.last_seen_at && (
+                    {device.last_seen_at ? (
                       <div class="device-meta-entry">
                         <span class="meta-label">Активность</span>
                         <span class="meta-val">{formatDate(device.last_seen_at)}</span>
+                      </div>
+                    ) : (
+                      <div class="device-meta-entry">
+                        <span class="meta-label">Активность</span>
+                        <span class="meta-val meta-unknown">нет данных</span>
                       </div>
                     )}
                   </div>
@@ -127,7 +146,7 @@ export function HardwareHud({
                       onClick={() => onRevoke(device)}
                       disabled={busy}
                     >
-                      Отключить
+                      {busy ? "Обновляем…" : "Отключить"}
                     </button>
                   </div>
                 </li>
@@ -138,22 +157,33 @@ export function HardwareHud({
       </section>
 
       {/* How to pair info */}
-      <section class="deck-panel guide-deck">
+      <section class="deck-panel guide-deck" aria-label="Как подключить новое устройство">
         <h2>Как подключить новое устройство</h2>
-        <p>
-          Откройте RockMobile или RockCast на устройстве и начните подключение из приложения.
-          Браузер подтверждает устройство, но не является RockMobile или RockCast и не считается текущим native-устройством.
-        </p>
+        <ol class="guide-steps">
+          <li>
+            Откройте RockCast или RockMobile на устройстве и начните подключение — приложение
+            покажет QR-код, проверочную фразу и короткий код.
+          </li>
+          <li>Отсканируйте QR-код камерой телефона: откроется защищённая ссылка этого запроса.</li>
+          <li>
+            Сверьте фразу и код с экраном устройства и подтвердите подключение в браузере.
+            Браузер подтверждает устройство, но не является RockMobile или RockCast и не считается
+            текущим native-устройством.
+          </li>
+        </ol>
       </section>
 
       {/* Security info */}
-      <section class="deck-panel guide-deck">
+      <section class="deck-panel guide-deck" aria-label="Безопасность доступа">
         <h2>Безопасность доступа</h2>
         <p>
-          Passkey подтверждает вход в этот браузер. «Отключить» завершает native-сессии выбранного устройства, но не завершает вход в текущем браузере; для него используйте действие ниже.
+          Passkey подтверждает вход в этот браузер. «Отключить» завершает native-сессии выбранного
+          устройства, но не завершает вход в текущем браузере; для него используйте действие ниже.
         </p>
         <p>
-          Сервер не удаляет passkey из браузера или Google Password Manager. Старый ключ удаляйте вручную только после успешного входа новым ключом. Одинаковое имя «RockServer user» само по себе не доказывает, что запись старая.
+          Сервер не удаляет passkey из браузера или Google Password Manager. Старый ключ удаляйте
+          вручную только после успешного входа новым ключом. Одинаковое имя «RockServer user» само
+          по себе не доказывает, что запись старая.
         </p>
       </section>
     </div>

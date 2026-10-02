@@ -1,5 +1,18 @@
 # Task log
 
+## 2026-10-02 — FRONTEND-REDESIGN-007: stage 7 pre-release pass, defect fixes, and release
+
+- Goal: run the full stage-7 verification of the redesigned cabinet, fix found defects, and release stages 2–7 plus the pairing-session change per `docs/frontend-redesign-plan.md`.
+- Scope:
+  - Full local harness browser pass at 390/800/1440 px across catalog/search/filters/grid+table, favorites, history, persistent player, devices, Yandex Home, and every QR pairing state (both session modes, expired, server-down, cancel, success→devices handoff).
+  - Fix 1: `web/src/components/StationsView.tsx` — the visible internal eyebrow «TUNER SELECTOR» replaced with the mockup's Russian «Прямой эфир».
+  - Fix 2: `web/src/style.css` — `--text-dim` `#546676` → `#7a92a5`, restoring ≥4.5:1 contrast for dim text (footer, «нет данных», sensor times, table headers, paused badge, offline badge) on all backgrounds it renders over.
+  - `web/tests/ux-regression.mjs`: the tuner-selector assertion now requires the Russian eyebrow and forbids the English label; added a dim-contrast assertion (20/20 tests).
+  - Documentation: stage-7 status in the plan, this entry, and `docs/status.md`.
+- Result: no overlaps or horizontal scroll at any tested width; long names wrap/ellipsize correctly; all reachable actions verified with honest states; playback continuous across sections on a single audio element. Native `window.prompt`/`window.confirm` flows (rename/revoke) verified via stubs because the embedded browser suppresses native dialogs; Tab-focus routing is not supported by the embedded browser, so keyboard focus was verified via CSS/static assertions.
+- Checks: `pnpm typecheck`, `pnpm test` (20/20), `pnpm build`, then `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test` (263 tests passed, 0 failed) run sequentially; 12 PostgreSQL and 5 external-provider tests remain ignored by their environment gates.
+- Status: pre-release verification complete; release (commit, push, staging deploy, post-deploy pass) recorded below and in `docs/status.md`. Manual scenarios pending user verification: real external radio playback, real passkey sign-in/registration, QR scanning with a physical phone, and live Yandex Home OAuth/sensors.
+
 ## 2026-10-02 — DEPLOY: Live track metadata synchronization in active station card deployed to staging
 
 - Goal: build, deploy, and verify release commit `84a4854` on the staging VPS via `deploy/ops-001-d.ps1`.
@@ -3226,3 +3239,88 @@
   `cargo test` — all passed with Rust 1.98.0. Twelve PostgreSQL and five external-provider tests
   remain ignored because their existing environment/credential gates were not configured.
 - Status: **complete.**
+
+## Pairing session reuse — 2026-10-02
+
+- Goal: allow QR pairing to use an existing valid browser session without a second passkey prompt.
+- Scope: pairing page restoration, approval policy and contract, regression coverage.
+- Result: an active cookie plus CSRF can approve the specific request; missing or expired sessions still require sign-in.
+- Checks: Web regression tests 15/15, typecheck, production build, cargo fmt --check, strict Clippy and cargo test passed. Disposable PostgreSQL integration was not run (TEST_DATABASE_URL unset).
+- Status: implemented and locally checked; deployment and physical QR flow remain unverified.
+
+## Frontend redesign planning — 2026-10-02
+
+- Goal: make the RockServer UI redesign actionable and keep the three visual mockups with the project.
+- Scope: `docs/frontend-redesign-plan.md`, three conceptual HTML files in `docs/mockups/`, status and task log. No runtime or API change.
+- Result: P0/P1 implementation order, affected frontend components, acceptance criteria and manual verification scenarios include catalog, navigation, persistent player, devices and QR pairing.
+- Checks: documentation links/assets, `git diff --check`, `cargo fmt --check`, strict Clippy and `cargo test` passed. PostgreSQL and external-service opt-in tests remained ignored.
+- Status: plan complete; UI implementation and deployment pending.
+
+## Mockup encoding fix — 2026-10-02
+
+- Goal: make the three saved frontend mockups readable when opened as local files in Windows.
+- Result: wrapped each UTF-8 fragment as a standalone Russian-language HTML document with charset, viewport and BOM; kept the visual content and interaction examples.
+- Scope: documentation assets only; no frontend runtime or API change.
+- Checks: UTF-8 decoding, document metadata, Russian text and matching delivered copies verified.
+- Status: complete.
+
+## Frontend plan clarification — 2026-10-02
+
+- Goal: turn the P0/P1 overview into a usable step-by-step implementation sequence.
+- Result: seven ordered stages from baseline through release, each with concrete work and exit criteria, added to `docs/frontend-redesign-plan.md`.
+- Scope: documentation only; no runtime or mockup change.
+- Status: complete.
+
+## Frontend baseline findings — 2026-10-02
+
+- Goal: preserve the prior browser audit and code inspection as the baseline for the redesign.
+- Result: added a scenario table with evidence labels and redesign implications to `docs/frontend-redesign-plan.md`; marked browser-observed, code-reviewed and unverified QR cases separately.
+- Status: stage 1 partially complete; QR end-to-end checks on a phone remain.
+
+## Frontend redesign stage 2 — 2026-10-02
+
+- Goal: assemble the four-section cabinet shell without changing station cards, table, player, devices, API, or server behavior.
+- Scope: header search, side/bottom navigation, placement of existing genre presets, removal of duplicate search and static service panels, responsive layout, and web regression expectations.
+- Result: Эфир, Избранное, История, and Устройства open; one search still submits and clears; the player stays mounted and local WAV playback advances through section changes.
+- Checks: local browser fixture at 390×844, 800×1000, and 1440×900 showed the first station, search, and player access without overlap or horizontal overflow; web build/typecheck and 15/15 regression tests passed; `cargo fmt --check`, strict Clippy, and `cargo test` passed in sequence.
+- Status: stage 2 complete locally. Live authenticated data, external radio playback, and stage 1 QR phone outcomes remain unverified; stage 3 has not started.
+
+## Frontend redesign stage 3 — 2026-10-02
+
+- Goal: align catalog cards, table, favorites, and history around actual station data and clear actions.
+- Scope: station presentation, favorite projection/count, history name fallback, retry of the current search, focused regression and local browser fixture. Stage 2 navigation, player, devices, QR, API, and server were not changed.
+- Result: both station views show available distinguishing metadata, rounded bitrate, explicit play/favorite actions, and neutral missing-data text. Favorite count matches the saved-ID list; history retains available names. Empty results and retryable errors remain actionable.
+- Checks: local authenticated fixture covered search/clear, genre selection/reset, grid/table, play attempts in both views, favorite add/remove and count 1→0, history, empty result, absent metadata, and error/retry. `pnpm typecheck`, 16/16 web regression tests, `pnpm build`, `cargo fmt --check`, strict Clippy, and `cargo test` passed sequentially.
+- Status: stage 3 complete locally. The fixture does not provide playable audio, and external streams/live authenticated data were not verified. Disposable PostgreSQL and live-provider tests remained ignored by environment gates. Stage 4 remains untouched.
+
+## Restore Yandex Home in redesign artifacts — 2026-10-02
+
+- Goal: correct the omitted existing Yandex Home integration.
+- Scope: two HTML mockups, frontend redesign plan and project documentation.
+- Result: Devices navigation opens a Yandex Home concept; stage 6 and release checks include its existing capabilities and states.
+- Checks: mockup JavaScript syntax and UTF-8 metadata, cargo fmt, strict Clippy and cargo test passed. Real Yandex OAuth/sensor access remains unverified.
+- Status: design/documentation correction complete; implementation remains in stage 6.
+
+## Frontend redesign stage 4 — 2026-10-02
+
+- Goal: rebuild the persistent player per stage 4 of `docs/frontend-redesign-plan.md` without touching catalog, navigation, devices, QR pairing, or the server.
+- Scope: `PlayerDeck.tsx` desktop panel and compact mobile block, truthful status badges with `aria-live`, stream-error retry that reloads the stream, removal of fabricated LIVE ICY/DIRECT RELAY/CAST/320 KBPS indicators, reserved mobile scroll space in `style.css`, cabinet track-title placeholder cleanup, player fixtures in the browser harness (`--stage4`), and stage-4 regression assertions.
+- Result: playback continues across all four sections with one audio element; start, pause/resume, buffering, stream error plus «Повторить», next/previous station, volume persistence, favorite, and codec/bitrate-only-when-reported are visible and honest on desktop and mobile widths.
+- Checks: local harness browser run at 390, 800, and 1440 px covering the full player scenario list with frame-level retry tracing and inspected screenshots; `pnpm typecheck`, 17/17 web regression tests, `pnpm build`, `cargo fmt --check`, strict Clippy, and `cargo test` passed sequentially.
+- Status: stage 4 complete locally. Playback used fixture WAV streams — real external radio, a live authenticated account, and stage 1 QR phone outcomes remain unverified; disposable PostgreSQL and live-provider tests stayed ignored by their environment gates. Stage 5 has not started.
+
+## Frontend redesign stage 5 — 2026-10-02
+
+- Goal: rebuild the post-QR pairing page per stage 5 of `docs/frontend-redesign-plan.md` without touching server pairing logic, catalog, player, or account deletion rules.
+- Scope: `PairingView.tsx` mockup layout (device name/type, verification phrase, short code, expiry, explicit confirm), explicit loading/cancelled/unavailable states, cancel and retry handlers plus an in-flight approve guard in `app.tsx`, retryable server-outage approve failures, pairing styles in `style.css`, `--stage5` fixture family in the browser harness, stage-5 regression assertions.
+- Result: with a live browser session the screen shows the account and «Подключить» with no second passkey; without a session it offers login/registration and returns to the same request (`/register?code=…` keeps the code, never the secret). Loading never claims the link invalid and never shows a login form during session restore; repeated clicks produce exactly one approve request; success keeps the RockMobile return link and the cabinet handoff; cancel, expired/used link, and server unavailability each have a distinct card, unavailability with a working retry. The approval secret remains only in the in-memory handoff ref.
+- Checks: local harness browser run at 390, 800, and 1440 px through all states in both session modes plus the registration round trip; `pnpm typecheck`, 18/18 web regression tests, `pnpm build`, `cargo fmt --check`, strict Clippy, and `cargo test` passed sequentially.
+- Status: stage 5 complete locally except the real-device criterion: end-to-end QR scanning on a phone with a designated test device was not available and stays explicitly unverified — harness fixtures do not substitute for it. Not deployed to the public site. Stage 6 has not started.
+
+## Frontend redesign stage 6 — 2026-10-02
+
+- Goal: bring the devices section, Yandex Home, and the account screens to the common cabinet style per stage 6 of `docs/frontend-redesign-plan.md`, without touching server code, auth/pairing rules, catalog, player, or the stage-5 QR flow.
+- Scope: `HardwareHud.tsx` device cards (product tag, session-derived status, guarded dates, QR empty state, numbered pairing guide), `YandexHomeCard.tsx` state machine (not connected / loading / ready / no sensors / data error / expired) with rooms, units, per-property update times, kept OAuth return message, confirmed disconnect, `aria-live` body, `AccountCentre.tsx` devices banner + `initialTab` + styled account gate screens, `app.tsx` QR-success handoff onto the devices tab, `style.css` for all of the above plus mobile single-column and 44px touch targets, `--stage6` fixture family and stage-5-approve→device handoff in `browser-harness.mjs`, stage-6 regression suite in `ux-regression.mjs`.
+- Result: the devices tab reads as a first-class cabinet section; native devices are distinguishable (RockCast/RockMobile) and safely unbindable with per-device busy states and honest «нет данных» for missing activity; the empty list explains the QR path; Yandex Home renders every listed state with the right action and never substitutes zeros for missing values; a successful QR pairing opens the cabinet directly in «Устройства» with the «Только что подключено» marker and a refreshed list; playback continued through every transition and refresh.
+- Checks: local harness browser run at 390, 800, and 1440 px covering filled/empty device lists, rename busy+success, revoke cancel/confirm/busy/removal, device-mutation failure, all six Yandex states, OAuth round trip and its kept result message, disconnect cancel/confirm/failure, and the QR→devices handoff; no horizontal scroll or player overlap at any width. `pnpm typecheck`, 19/19 web regression tests, `pnpm build`, `cargo fmt --check`, strict Clippy, and `cargo test` passed sequentially.
+- Status: stage 6 complete locally. Fixtures are synthetic: real Yandex OAuth, live sensors, and real-device rename/revoke/disconnect remain unverified; not deployed to the public site. Stage 7 has not started.

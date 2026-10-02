@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import type { ComponentChildren } from "preact";
 import { api, type BrowserAccount, type BrowserDevice, type StationItem } from "../api";
 import { usePersonalSync } from "../usePersonalSync";
 import { Header } from "./Header";
@@ -7,6 +8,8 @@ import { StationsView } from "./StationsView";
 import { HardwareHud, type JustConnected } from "./HardwareHud";
 import { YandexHomeCard } from "./YandexHomeCard";
 import { PlayerDeck } from "./PlayerDeck";
+
+const GENRE_PRESETS = ["all", "rock", "electronic", "synthwave", "jazz", "classical", "ambient"];
 
 export type AccountState = "loading" | "anonymous" | "authenticated" | "expired" | "unavailable";
 
@@ -19,6 +22,7 @@ export interface AccountCentreProps {
   authBusy: boolean;
   deviceBusy: string;
   logoutBusy: boolean;
+  initialTab?: NavTab;
   justConnected?: JustConnected;
   yandexHomeStatus?: string;
   onAuthenticate: () => Promise<void>;
@@ -27,6 +31,30 @@ export interface AccountCentreProps {
   onRename: (device: BrowserDevice) => Promise<void>;
   onRevoke: (device: BrowserDevice) => Promise<void>;
   onLogout: () => Promise<void>;
+}
+
+/** Gate screen shown while the browser session is loading, missing, expired, or unreachable. */
+function AccountGate({
+  eyebrow,
+  title,
+  children,
+  role,
+}: {
+  eyebrow: string;
+  title: string;
+  children: ComponentChildren;
+  role?: "status" | "alert";
+}) {
+  return (
+    <main class="account-gate">
+      <section class="deck-panel account-gate-panel" role={role}>
+        <p class="eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        {children}
+      </section>
+      <footer className="cabinet-footer">Passkey и данные сессии не сохраняются в браузере.</footer>
+    </main>
+  );
 }
 
 /** Renders the safe browser account and native-device cabinet with modern studio tuner UI. */
@@ -39,6 +67,7 @@ export function AccountCentre({
   authBusy,
   deviceBusy,
   logoutBusy,
+  initialTab = "stations",
   justConnected,
   yandexHomeStatus,
   onAuthenticate,
@@ -48,11 +77,12 @@ export function AccountCentre({
   onRevoke,
   onLogout,
 }: AccountCentreProps) {
-  const [activeTab, setActiveTab] = useState<NavTab>("stations");
+  const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [searchError, setSearchError] = useState("");
+  const [searchAttempt, setSearchAttempt] = useState(0);
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
@@ -74,6 +104,7 @@ export function AccountCentre({
     if (activeTab !== "stations" && activeTab !== "favorites" && activeTab !== "history") {
       setActiveTab("stations");
     }
+    setSearchAttempt((attempt) => attempt + 1);
   };
 
   const handleSearchClear = () => {
@@ -188,7 +219,7 @@ export function AccountCentre({
     return () => {
       active = false;
     };
-  }, [activeSearch, selectedTag]);
+  }, [activeSearch, selectedTag, searchAttempt]);
 
   const handleToggleFavorite = (stationId: string) => {
     const stationItem =
@@ -207,7 +238,9 @@ export function AccountCentre({
     } else {
       setCurrentStation(station);
       setIsPlaying(true);
-      setTrackTitle("Подключение к эфиру…");
+      // Statuses like "connecting" are rendered by PlayerDeck; an empty title
+      // keeps the honest "Прямой эфир" fallback until real metadata arrives.
+      setTrackTitle("");
     }
   };
 
@@ -229,9 +262,18 @@ export function AccountCentre({
     );
   };
 
+  // Build the list from the same IDs that drive each favorite button and count.
+  const knownFavorites = new Map(
+    [...favoriteStations, ...history, ...stations, ...(currentStation ? [currentStation] : [])]
+      .map((station) => [station.id, station] as const)
+  );
+  const savedStations = favorites.map((id) => knownFavorites.get(id) ?? {
+    id, name: "Станция без названия", tags: [],
+  });
+
   const displayedStations =
     activeTab === "favorites"
-      ? filterBySearch(favoriteStations)
+      ? filterBySearch(savedStations)
       : activeTab === "history"
       ? filterBySearch(history)
       : stations;
@@ -252,69 +294,42 @@ export function AccountCentre({
 
   if (accountState === "loading")
     return (
-      <main aria-busy="true">
-        <header>
-          <span>ROCK</span>
-          <h1>Rock-аккаунт</h1>
-        </header>
-        <section role="status">
-          <h2>Загружаем аккаунт…</h2>
-          <p>Проверяем вход в этом браузере.</p>
-        </section>
-      </main>
+      <AccountGate eyebrow="Rock-аккаунт" title="Загружаем аккаунт…" role="status">
+        <p>Проверяем вход в этом браузере.</p>
+      </AccountGate>
     );
   if (accountState === "unavailable")
     return (
-      <main>
-        <header>
-          <span>ROCK</span>
-          <h1>Rock-аккаунт</h1>
-        </header>
-        <section role="alert">
-          <h2>Сервис временно недоступен</h2>
-          <p>{accountMessage || "Попробуйте обновить данные позже."}</p>
-          <button onClick={onRetry}>Повторить</button>
-        </section>
-      </main>
+      <AccountGate eyebrow="Rock-аккаунт" title="Сервис временно недоступен" role="alert">
+        <p>{accountMessage || "Попробуйте обновить данные позже."}</p>
+        <button onClick={onRetry}>Повторить</button>
+      </AccountGate>
     );
   if (accountState === "expired")
     return (
-      <main>
-        <header>
-          <span>ROCK</span>
-          <h1>Rock-аккаунт</h1>
-        </header>
-        <section role="alert">
-          <h2>Сессия браузера завершена</h2>
-          <p>Войдите с passkey ещё раз, чтобы увидеть устройства.</p>
-          <button onClick={onAuthenticate} disabled={authBusy}>
-            {authBusy ? "Проверяем…" : "Войти с passkey"}
-          </button>
-        </section>
-      </main>
+      <AccountGate eyebrow="Rock-аккаунт" title="Сессия браузера завершена" role="alert">
+        <p>Войдите с passkey ещё раз, чтобы увидеть устройства.</p>
+        <button onClick={onAuthenticate} disabled={authBusy}>
+          {authBusy ? "Проверяем…" : "Войти с passkey"}
+        </button>
+      </AccountGate>
     );
   if (accountState === "anonymous")
     return (
-      <main>
-        <header>
-          <span>ROCK</span>
-          <h1>Rock-аккаунт</h1>
-        </header>
-        <section>
-          <h2>Вы не вошли</h2>
-          <p>
-            Вход открывает существующий Rock-аккаунт. Создание аккаунта создаёт новый аккаунт с passkey.
-          </p>
+      <AccountGate eyebrow="Rock-аккаунт" title="Вы не вошли">
+        <p>
+          Вход открывает существующий Rock-аккаунт. Создание аккаунта создаёт новый аккаунт с passkey.
+        </p>
+        <div class="gate-actions">
           <button onClick={onAuthenticate} disabled={authBusy}>
             {authBusy ? "Проверяем…" : "Войти с passkey"}
           </button>
           <button className="secondary" onClick={onRegister} disabled={authBusy}>
             Создать Rock-аккаунт
           </button>
-          {accountMessage && <p role="status">{accountMessage}</p>}
-        </section>
-        <footer>Passkey и данные сессии не сохраняются в браузере.</footer>
-      </main>
+        </div>
+        {accountMessage && <p role="status">{accountMessage}</p>}
+      </AccountGate>
     );
   if (!account) return null;
 
@@ -326,21 +341,17 @@ export function AccountCentre({
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         onSearchSubmit={handleSearchSubmit}
+        onSearchClear={handleSearchClear}
         onLogout={onLogout}
         logoutBusy={logoutBusy}
       />
 
       <main class="cabinet-main-grid">
-        {/* Left Column: Navigation & Presets */}
         <SidebarNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          selectedTag={selectedTag}
-          onTagSelect={handleTagSelect}
-          favoritesCount={favorites.length}
         />
 
-        {/* Center Column: Tuner & Station Grid OR Hardware Devices view */}
         <div class="cabinet-center-col">
           {accountMessage && (
             <p class="account-alert" role="status">
@@ -348,12 +359,14 @@ export function AccountCentre({
             </p>
           )}
 
-          <p class="badge" role="status">
-            ✓ Выполнен вход в браузере
-          </p>
-
           {activeTab === "devices" ? (
             <div class="cabinet-center-devices">
+              <div class="deck-panel devices-banner">
+                <div class="tuner-banner-glow" aria-hidden="true" />
+                <p class="eyebrow">Аккаунт и подключения</p>
+                <h1 class="devices-title">Устройства</h1>
+                <p class="tuner-subtitle">RockCast, RockMobile и Яндекс Дом</p>
+              </div>
               <HardwareHud
                 account={account}
                 deviceBusy={deviceBusy}
@@ -369,7 +382,22 @@ export function AccountCentre({
               />
             </div>
           ) : (
-            <StationsView
+            <>
+              {activeTab === "stations" && (
+                <div class="genre-presets-grid" aria-label="Жанры">
+                  {GENRE_PRESETS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      class={`preset-chip ${selectedTag === tag || (!selectedTag && tag === "all") ? "selected" : ""}`}
+                      onClick={() => handleTagSelect(tag === "all" ? "" : tag)}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <StationsView
               stations={displayedStations}
               activeStationId={currentStation?.id}
               isPlaying={isPlaying}
@@ -377,45 +405,17 @@ export function AccountCentre({
               onPlayStation={handlePlayStation}
               favorites={favorites}
               onToggleFavorite={handleToggleFavorite}
-              loading={stationsLoading}
+              loading={activeTab === "stations" && stationsLoading}
               searchQuery={searchQuery}
-              onSearchChange={handleSearchChange}
               onSearchSubmit={handleSearchSubmit}
-              onSearchClear={handleSearchClear}
-              searchError={searchError}
+              searchError={activeTab === "stations" ? searchError : ""}
               selectedTag={selectedTag}
               activeTab={activeTab}
-            />
-          )}
-        </div>
-
-        {/* Right Column: Hardware & Smart Home HUD */}
-        <aside class="cabinet-right-col">
-          {activeTab !== "devices" ? (
-            <>
-              <HardwareHud
-                account={account}
-                deviceBusy={deviceBusy}
-                justConnected={justConnected}
-                onRename={onRename}
-                onRevoke={onRevoke}
-              />
-              <YandexHomeCard
-                account={account}
-                csrf={csrf}
-                onChanged={onRetry}
-                initialStatus={yandexHomeStatus}
+              favoriteCount={savedStations.length}
               />
             </>
-          ) : (
-            <div class="deck-panel guide-deck">
-              <div class="panel-kicker">Управление устройствами</div>
-              <p class="sync-desc">
-                Здесь отображаются все подключённые устройства Windows RockCast и RockMobile, а также интеграция с умным домом Яндекс.
-              </p>
-            </div>
           )}
-        </aside>
+        </div>
       </main>
 
       {/* Persistent Bottom Audio Player Deck */}

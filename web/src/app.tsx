@@ -104,11 +104,11 @@ function PublicApp() {
   const [showCabinet, setShowCabinet] = useState(false);
   const [justConnected, setJustConnected] = useState<JustConnected>();
   const registrationBusy = useRef(false);
+  const approveBusy = useRef(false);
 
   const lookup = async () => {
     try {
       setPreview(await api.pairing(code));
-      setPairingState((current) => (current === "loading" ? "anonymous" : current));
     } catch (error) {
       setPreview(undefined);
       setPairingState(
@@ -146,10 +146,12 @@ function PublicApp() {
       const session = await api.browserSession();
       setCsrf(session.csrf_token);
       setAuthenticatedAccountName(session.account_display_name);
-      // A restored cookie is not a fresh passkey assertion, so it cannot approve a pairing.
-      setPairingState(current => current === "approved" || current === "authenticated" || current === "approving" ? current : "anonymous");
+      // Keep terminal and in-flight states if the session response arrives late.
+      setPairingState(current => current === "approved" || current === "approving" || current === "terminal" || current === "unavailable" ? current : "authenticated");
     } catch (error) {
-      if (!isAuthenticationError(error)) {
+      if (isAuthenticationError(error))
+        setPairingState(current => current === "loading" ? "anonymous" : current);
+      else {
         setPairingState("unavailable");
         setMessage(errorMessage(error));
       }
@@ -245,10 +247,13 @@ function PublicApp() {
   };
 
   const approve = async () => {
+    // The ref guard blocks a second in-flight confirmation even before the state re-render.
+    if (approveBusy.current) return;
     if (!preview || !authenticatedAccountName || !csrf || pairingState !== "authenticated") {
       setMessage("Сначала войдите с passkey.");
       return;
     }
+    approveBusy.current = true;
     setAuthBusy(true);
     setPairingState("approving");
     setMessage("");
@@ -261,11 +266,32 @@ function PublicApp() {
       );
       setPairingState("approved");
     } catch (error) {
-      setPairingState("terminal");
+      const code = (error as ApiError)?.code;
+      if (code === "auth_unavailable" || code === "server_unavailable") {
+        // The server could not be reached; the request itself stays approvable for a retry.
+        setPairingState("authenticated");
+      } else {
+        setPairingState("terminal");
+      }
       setMessage(errorMessage(error));
     } finally {
+      approveBusy.current = false;
       setAuthBusy(false);
     }
+  };
+
+  /** Local cancellation of the shown request; the pairing link itself stays unapproved. */
+  const cancelPairing = () => {
+    setPairingState("cancelled");
+    setMessage("");
+  };
+
+  /** Re-runs the pairing lookup and session restore after a server-unavailable outcome. */
+  const retryPairing = () => {
+    setMessage("");
+    setPairingState("loading");
+    void lookup();
+    void restoreSession();
   };
 
   const refreshAccount = async () => {
@@ -389,6 +415,7 @@ function PublicApp() {
         authBusy={authBusy}
         deviceBusy={deviceBusy}
         logoutBusy={logoutBusy}
+        initialTab={justConnected ? "devices" : "stations"}
         justConnected={justConnected}
         yandexHomeStatus={yandexHomeStatus}
         onAuthenticate={authenticate}
@@ -406,10 +433,11 @@ function PublicApp() {
       preview={preview}
       pairingState={pairingState}
       authenticatedAccountName={authenticatedAccountName}
-      csrf={csrf}
       authBusy={authBusy}
       message={message}
       onApprove={approve}
+      onCancel={cancelPairing}
+      onRetry={retryPairing}
       onAuthenticate={authenticate}
       onOpenRegistration={openRegistration}
       onOpenCabinet={openCabinet}

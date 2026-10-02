@@ -66,7 +66,7 @@ impl PostgresAccountStore {
         .map(|row| row.map(Into::into))
     }
 
-    /// Approves a pending request only from a live browser session with a fresh passkey assertion.
+    /// Approves a pending request from a live browser session owned by the account.
     pub async fn approve_pairing_request(
         &self,
         request_id: Uuid,
@@ -80,7 +80,7 @@ impl PostgresAccountStore {
              FROM browser_sessions b JOIN users u ON u.id = b.user_id \
              WHERE p.id = $1 AND p.approval_secret_hash = $4 AND p.verification_phrase = $5 AND p.approved_at IS NULL AND p.consumed_at IS NULL AND p.revoked_at IS NULL AND p.expires_at > now() \
              AND b.id = $3 AND b.user_id = $2 AND b.revoked_at IS NULL AND b.expires_at > now() \
-             AND b.passkey_reauthenticated_at > now() - interval '2 minutes' AND u.status = 'active'",
+             AND u.status = 'active'",
         )
         .bind(request_id)
         .bind(user_id)
@@ -107,7 +107,7 @@ impl PostgresAccountStore {
              WHERE p.id = $1 AND p.approval_secret_hash = $2 AND p.verification_phrase = $3 \
              AND p.approved_at IS NULL AND p.consumed_at IS NULL AND p.revoked_at IS NULL AND p.expires_at > now() \
              AND b.session_token_hash = $4 AND b.csrf_token_hash = $5 AND b.revoked_at IS NULL AND b.expires_at > now() \
-             AND b.passkey_reauthenticated_at > now() - interval '2 minutes' AND u.status = 'active'",
+             AND u.status = 'active'",
         )
         .bind(request_id)
         .bind(approval_secret_hash.as_bytes())

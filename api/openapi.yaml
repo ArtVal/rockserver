@@ -1047,7 +1047,7 @@ paths:
   /api/v1/pairing-requests/{request_id}/approve:
     post:
       operationId: approvePairingRequest
-      summary: Approve a pairing request from a fresh browser session
+      summary: Approve a pairing request from an active browser session
       security:
         - RockserverBrowserCookie: []
       parameters:

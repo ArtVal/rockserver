@@ -155,7 +155,8 @@ export function usePersonalSync(csrf: string) {
               const meta = rec.metadata as Record<string, unknown>;
               historyList.push({
                 id: stId,
-                name: (meta.name as string) || "Радиостанция",
+                name: typeof meta.name === "string" && meta.name.trim()
+                  ? meta.name : history.find((h) => h.id === stId)?.name || "Станция без названия",
                 tags: Array.isArray(meta.tags) ? (meta.tags as string[]) : [],
                 stream_url: typeof meta.stream_url === "string" ? meta.stream_url : undefined,
                 favicon_url: typeof meta.favicon_url === "string" ? meta.favicon_url : undefined,
@@ -168,7 +169,7 @@ export function usePersonalSync(csrf: string) {
               if (localMatch) {
                 historyList.push(localMatch);
               } else {
-                historyList.push({ id: stId, name: stId, tags: [] });
+                historyList.push({ id: stId, name: "Станция без названия", tags: [] });
               }
             }
           }

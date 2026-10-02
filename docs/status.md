@@ -2,6 +2,39 @@
 
 Last updated: 2026-10-02
 
+## FRONTEND-REDESIGN-007: stage 7 pre-release pass and defect fixes (2026-10-02)
+
+Stage 7 of `docs/frontend-redesign-plan.md` (verify and release) — the pre-release browser pass is complete on the locally built bundle; deployment is recorded separately below:
+- Full harness pass at 390/800/1440 px: catalog (search + clear, genre filter + reset, grid/table, empty result, search error with working retry), favorites (header count matches the saved list), history (fallback names), persistent player (start, pause/resume, slow-station buffering, stream error with «Повторить», next/previous, volume, live SSE metadata, exactly one audio element with playback continuing through all four sections), devices (honest cards, rename with busy+success, revoke cancel/confirm/removal, empty list with the QR explanation), Yandex Home (connected with sensors and per-property times, confirmed disconnect, OAuth round trip keeping the result message), and QR pairing (loading, active-session confirm without a second passkey, in-flight guard, success, cabinet handoff onto «Устройства» with «Только что подключено», cancel, expired link, server-down retry screen, no-session login/registration with the code kept in the URL). No horizontal scroll or overlaps at any width; long names wrap in cards and ellipsize in the player/device table.
+- Defects fixed by this pass: the visible internal label «TUNER SELECTOR» was replaced with the mockup's Russian eyebrow «Прямой эфир» (`StationsView.tsx`), and `--text-dim` was raised from `#546676` (≈3.1–3.3:1) to `#7a92a5` (≥4.5:1 WCAG AA on every background where dim text renders — space, deck, table header, translucent chips). `web/tests/ux-regression.mjs` now asserts the Russian eyebrow, the absence of the English label, and the accessible dim color (20/20).
+- Environment limitations recorded honestly: desktop browser at responsive widths, not a physical phone; the embedded browser suppresses native `window.prompt`/`window.confirm` (rename/revoke verified by stubbing — PATCH/DELETE calls, CSRF, list refresh, and messages confirmed) and does not route Tab focus (focus visibility verified via CSS `:focus-visible` and static tests). Fixtures are not real radio, passkey ceremonies, phone QR scanning, or live Yandex sensors; those stay pending user verification.
+- Web checks: `pnpm typecheck`, 20/20 `pnpm test`, `pnpm build` passed; server checks passed sequentially — `cargo fmt --check`, strict Clippy (0 warnings), `cargo test` (263 passed, 0 failed; 12 PostgreSQL and 5 external-provider tests ignored by environment gates).
+
+## FRONTEND-REDESIGN-006: devices, Yandex Home, and account screens in the cabinet style (2026-10-02)
+
+Stage 6 of `docs/frontend-redesign-plan.md` is implemented locally (not deployed):
+- `web/src/components/AccountCentre.tsx`: the devices tab opens with a proper cabinet section header («Аккаунт и подключения» → «Устройства» → «RockCast, RockMobile и Яндекс Дом»); the four account gate screens (loading, anonymous, expired, unavailable) moved into a centered `deck-panel` gate without changing any auth rules, texts, or confirmations; new `initialTab` prop.
+- `web/src/app.tsx`: a cabinet opened from a successful QR pairing now starts directly on the devices tab (`initialTab={justConnected ? "devices" : "stations"}`), and the account reload that already runs on the handoff refreshes the device list.
+- `web/src/components/HardwareHud.tsx`: device cards show the product tag (RockCast/RockMobile from `device_type`), a status strictly derived from `session_status` («В сети»/«Офлайн»), connection date, and activity — «нет данных» when `last_seen_at` is absent instead of a fabricated date; rename/revoke keep per-device busy states; the empty list explains the QR path (start in the app → scan the QR → confirm in the browser); the pairing guide became numbered QR steps; security copy unchanged.
+- `web/src/components/YandexHomeCard.tsx`: one card per state — «Не подключён», «Загрузка» («Обновляем показания…»), connected with sensors, «Нет датчиков», «Ошибка данных» with «Повторить», «Доступ истёк» with «Подключить снова» (`yandex_home_reconnect_required`); sensors show name, room, per-property value with a unit appended only when the formatted value doesn't already contain it, and the update time of each property («Доступных показаний нет» for devices without properties, no zero placeholders); the header carries a state badge and the body is `aria-live`. The OAuth redirect, return message (`?yandex_home=connected|failed` — now kept visible after the automatic sensor load instead of being wiped), manual refresh, and confirmed disconnect are preserved.
+- `web/src/style.css`: section banner, device card details, QR empty state, guide steps, Yandex state badges, sensor grid (`auto-fit` so few cards fill the row), account gate, and mobile single-column/touch-target rules.
+- `web/tests/browser-harness.mjs`: `--stage6` fixture family (empty devices, Yandex off/empty/error/expired/slow, device-mutation and disconnect failures, CSRF-checked PATCH/DELETE with call counting); a successful `--stage5` approve now adds the paired device to the stage-6 account so the QR handoff is observable end-to-end.
+- `web/tests/ux-regression.mjs`: stage-6 suite (19/19 total) covering honest device fields, the QR empty state, every Yandex state text/action, unit/time handling, the devices-tab handoff, and the fixture matrix.
+- Verification: local harness browser pass at 390/800/1440 px — filled and empty device lists, rename (busy + success), revoke cancel/confirm (busy + removal + message), both operation failures, QR approve → cabinet opens on «Устройства» with «✓ Только что подключено» and a refreshed list, all six Yandex states, OAuth round trip with the kept result message, disconnect cancel/confirm/failure; playback continued across every section switch (audio time advanced, single audio node); no horizontal scroll and no player overlap at any width. `pnpm typecheck`, 19/19 web tests, `pnpm build`, `cargo fmt --check`, strict Clippy, and `cargo test` (195 lib + suites; environment-gated suites stayed ignored) passed sequentially.
+- Limitations: harness fixtures are synthetic and are not a substitute for real Yandex OAuth or live sensors; no rename/revoke/disconnect was performed against real connected devices; not deployed to the public site.
+- Next step: stage 7 (full pass + release) of the redesign plan.
+
+## FRONTEND-REDESIGN-005: QR device-link screen with explicit pairing states (2026-10-02)
+
+Rebuilt the post-QR pairing screen per the mobile mockup as stage 5 of `docs/frontend-redesign-plan.md`:
+- `web/src/components/PairingView.tsx`: dedicated narrow pairing column; device facts card (name with product type, amber verification phrase, monospace short code, expiry) above a stage card that renders explicit states — data loading ("Загружаем данные подключения…", link never called invalid while loading), session restore ("Проверяем вашу сессию…", no login form during restore), connect offer for a live browser session without a second passkey, in-flight confirmation ("Подключаем…", button disabled), success with «Вернуться в RockMobile»/«Открыть аккаунт и устройства», local cancellation, terminal invalid/expired/used link, and server-unavailable with «Повторить попытку».
+- `web/src/app.tsx`: `approveBusy` ref guard makes double confirmation impossible while a request is in flight (harness counted exactly one approve POST after repeated clicks); `cancelPairing` and `retryPairing` handlers; approve failure now keeps the request approvable on `server_unavailable`/`auth_unavailable` and only marks dead links terminal. The approval secret stays only in the in-memory handoff ref — never rendered, logged, or placed in a URL — and survives re-renders and the registration round trip (`/register?code=…` keeps the code, drops the secret).
+- `web/src/style.css`: pairing fact dividers, amber phrase, monospace code, loading spinner, success accent.
+- `web/tests/browser-harness.mjs`: `--stage5`, `--stage5-expired`, `--stage5-down`, `--stage5-approve-fail` fixtures slow lookup/session/approve calls and count approve hits; `web/tests/ux-regression.mjs` gained a stage-5 suite (now 18/18).
+- Verification: browser run against the local harness at 390, 800, and 1440 px covered every listed state in both session modes, the registration round trip back to the same request, and the no-second-passkey rule; `pnpm typecheck`, `pnpm test`, `pnpm build`, `cargo fmt --check`, strict Clippy, and `cargo test` all passed.
+- Limitations: end-to-end QR scanning with a real phone/test device was not performed — fixture checks are not a substitute; the change is not deployed to the public site. Server pairing logic (secret/phrase/expiry/CSRF checks) is unchanged.
+- Next step: stage 6 (devices, Yandex Home, account cards) of the redesign plan; a dedicated safe phone pass for the QR flow.
+
 ## DEPLOY: Live track metadata synchronization in active station card deployed to staging (2026-10-02)
 
 Release commit `84a4854` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
@@ -2686,3 +2719,49 @@ PostgreSQL integration tests were not run because no disposable `TEST_DATABASE_U
 CI and the pinned Docker builder now target Rust 1.98.0. `cargo fmt --check`, strict Clippy, and
 `cargo test` pass with Rust 1.98.0. PostgreSQL and billable external-provider tests remain ignored
 under their existing environment gates.
+
+## Pairing with an active browser session — 2026-10-02
+
+A valid browser cookie and refreshed tab-local CSRF proof now allow explicit approval of the QR-linked device without a second passkey ceremony. The one-time pairing secret, verification phrase, request expiry, account ownership, trusted-origin checks and explicit approval remain required. Missing or expired browser sessions still require passkey sign-in. The older two-minute passkey gate documented above has been superseded for pairing only; account deletion retains its separate fresh-passkey requirement. Web regression tests (15/15), typecheck, production build, cargo fmt, strict Clippy and cargo test passed. The disposable PostgreSQL integration case covering an aged passkey and valid session was updated but not run because TEST_DATABASE_URL is not configured. The deployed site has not been changed.
+
+## Frontend redesign plan — 2026-10-02
+
+A user-facing implementation plan and three conceptual HTML mockups are stored in `docs/frontend-redesign-plan.md` and `docs/mockups/`. They cover desktop/mobile catalog and persistent player plus mobile QR pairing. This change is documentation and design assets only; none of the redesigned screens has been implemented or deployed. The existing local pairing-session change remains separate. Next step: implement the P0 stages against real UI state and verify in desktop/mobile browsers.
+
+## Mockup file encoding correction — 2026-10-02
+
+The three conceptual frontend mockups are now standalone HTML documents with an explicit UTF-8 charset and BOM, so Russian text renders correctly when opened locally in Windows. This is an asset-format correction only; runtime UI remains unchanged.
+
+## Frontend plan sequence — 2026-10-02
+
+The frontend redesign plan now contains seven ordered implementation steps with exit criteria; the mockups and runtime state are unchanged.
+
+## Frontend baseline — 2026-10-02
+
+The redesign plan now records browser-observed desktop/mobile findings and code-only pairing findings in a scenario table. Stage 1 is partially complete: the QR flow and failure/expiry outcomes have not been exercised end-to-end on a phone. The existing local pairing-session change remains undeployed.
+
+## Frontend redesign stage 2 — 2026-10-02
+
+The cabinet shell now has four sections (Эфир, Избранное, История, Устройства), one header search wired to the existing search state, catalog-only genre presets, compact desktop/tablet side navigation, and mobile bottom navigation. Static relay/sync indicators, the duplicate catalog search, and the always-visible device column are removed. The player remains mounted outside section content.
+
+Verified in a local browser with fixture station/account data at 390×844, 800×1000, and 1440×900: search, first station, section navigation, and player controls remained visible without horizontal overflow or navigation overlap. A local WAV played continuously through all four sections (`paused=false`, advancing `currentTime`). Web typecheck/build and 15/15 web regression tests passed. `cargo fmt --check`, strict Clippy, and `cargo test` passed sequentially. Disposable PostgreSQL and external-provider tests remained ignored by their environment gates.
+
+Current limitations: this was a local fixture browser run, not a live authenticated account or external radio stream; stage 1 QR phone outcomes remain unverified. Next step is stage 3 catalog/favorites/history work, separately from this shell change.
+
+## Frontend redesign stage 3 — 2026-10-02
+
+Catalog cards and table rows now expose named play and favorite controls, available tags, country, language, codec, and rounded bitrate. Missing metadata has a neutral label; repeated station names retain their distinguishing metadata. The favorites list and its header count both follow the same saved station IDs, including a neutral placeholder when station details are unavailable. History prefers synced station data or recorded names and uses a neutral fallback. Search submission and retry issue a new request even for the same query; existing search and genre controls remain in place.
+
+Verified with the local authenticated browser fixture: search/clear, genre selection/reset, grid/table, play attempts from both views, favorite add/remove and count 1→0, history transition, empty search result, missing metadata, and error followed by successful retry. The fixture has no playable audio stream, so external playback was not verified. `pnpm typecheck`, `pnpm test` (16/16), `pnpm build`, `cargo fmt --check`, strict Clippy, and `cargo test` passed sequentially. Disposable PostgreSQL and live provider tests remained ignored by their environment gates. Stage 4 player work has not started; next step is stage 4 when requested.
+
+## Yandex Home restored to redesign scope — 2026-10-02
+
+Desktop/mobile mockups now include a Devices view with Yandex Home and illustrative connection, loading, empty, error and expired-access states. Stage 6 explicitly retains OAuth connection/return, sensor data, refresh and confirmed disconnect. Production frontend code was not modified; real OAuth/sensor checks remain unverified.
+
+## Frontend redesign stage 4 — 2026-10-02
+
+The persistent player was rebuilt around the same single cabinet-level audio element and stream/now-playing/SSE APIs. The desktop panel shows station, a truthful status badge (В эфире / Подключение / Пауза / Ошибка), track title or honest fallback, previous/play/pause/next, codec and bitrate only when actually reported, volume, and favorite. At ≤900 px the deck wraps into a two-row block: station and track/status on top, volume plus a 48 px play control below; it sits flush above the mobile bottom navigation and `cabinet-layout` reserves 210 px of scroll space so list and footer stay reachable. Status changes are announced via `aria-live="polite"`, and a stream failure always offers a «Повторить» action that fully reloads the stream URL. Fabricated indicators (LIVE ICY, DIRECT RELAY, CAST: RockCast, fallback 320 KBPS) were removed, and the cabinet no longer writes a status placeholder into the track title.
+
+Verified with the local harness (`--stage4`: endless WAV drip streams, a slow-start station, a permanently failing 503 station, SSE metadata, now-playing snapshots) in a real browser at 390, 800, and 1440 px: start, pause/resume, buffering indicator, stream error plus retry (frame-level trace showed connecting → network reload → error with no false «В эфире» flash), next/previous station, volume applied to the audio element and persisted in localStorage, favorite toggle, and section switches across all four sections keeping playback continuous (advancing `currentTime`, single audio element). Screenshots of playing, buffering, and error states were visually inspected; no overlap with the list or bottom navigation and no horizontal overflow. `pnpm typecheck`, 17/17 web regression tests, `pnpm build`, then `cargo fmt --check`, strict Clippy, and `cargo test` passed sequentially.
+
+Current limitations: playback was verified against the local fixture WAV streams, not a real external radio stream, so real-radio audibility remains unverified; a live authenticated account was not used; browser console output was not collected (the in-app browser tooling exposes no console listener). Stage 5 (QR pairing page) has not started; next step is stage 5 when requested.

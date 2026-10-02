@@ -132,6 +132,13 @@ async fn postgres_b2_browser_pairing_webauthn_and_rate_limits() {
             .unwrap()
     );
 
+    let aging_pool = repository_pool(&database_url).await;
+    sqlx::query("UPDATE browser_sessions SET passkey_reauthenticated_at = now() - interval '3 minutes' WHERE id = $1")
+        .bind(browser_session_id)
+        .execute(&aging_pool)
+        .await
+        .unwrap();
+    aging_pool.close().await;
     let request_id = Uuid::new_v4();
     assert!(
         store
@@ -216,16 +223,30 @@ async fn postgres_b2_browser_pairing_webauthn_and_rate_limits() {
             .unwrap()
     );
     assert!(
-        store
-            .approve_pairing_request(
+        !store
+            .approve_pairing_request_with_browser_proof(
                 expired_request_id,
-                user_id,
-                browser_session_id,
                 &SecretHash::new([13; 32]),
                 "SILVER-STAR",
+                &SecretHash::new([11; 32]),
+                &SecretHash::new([99; 32]),
             )
             .await
-            .unwrap()
+            .unwrap(),
+        "a wrong CSRF proof must not approve pairing"
+    );
+    assert!(
+        store
+            .approve_pairing_request_with_browser_proof(
+                expired_request_id,
+                &SecretHash::new([13; 32]),
+                "SILVER-STAR",
+                &SecretHash::new([11; 32]),
+                &SecretHash::new([1; 32]),
+            )
+            .await
+            .unwrap(),
+        "an active browser session can approve after the two-minute passkey window"
     );
     let expiry_pool = repository_pool(&database_url).await;
     sqlx::query(

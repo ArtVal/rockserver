@@ -307,7 +307,7 @@ pub(super) async fn lookup_pairing_request(
     }
 }
 
-/// Approves a pairing request with a fresh browser session and double-submit CSRF proof.
+/// Approves a pairing request with an active browser session and double-submit CSRF proof.
 pub(super) async fn approve_pairing_request(
     State(state): State<AppState>,
     Path(pairing_id): Path<Uuid>,

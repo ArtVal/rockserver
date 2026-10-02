@@ -1,5 +1,5 @@
 /**
- * Top application header providing system status, tuner search bar,
+ * Top application header providing the cabinet search bar,
  * account identity badge, and session logout controls.
  */
 export function Header({
@@ -7,6 +7,7 @@ export function Header({
   searchQuery,
   onSearchChange,
   onSearchSubmit,
+  onSearchClear,
   onLogout,
   logoutBusy,
 }: {
@@ -14,13 +15,13 @@ export function Header({
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSearchSubmit?: () => void;
+  onSearchClear?: () => void;
   onLogout?: () => void;
   logoutBusy?: boolean;
 }) {
   return (
     <header class="app-header">
       <div class="header-inner">
-        {/* Brand identity */}
         <div class="header-brand">
           <div class="brand-logo-wrap">
             <img
@@ -35,16 +36,10 @@ export function Header({
             <div class="brand-title">
               <span>ROCK</span>
               <span class="brand-accent">SERVER</span>
-              <span class="brand-version">CABINET v1.4</span>
-            </div>
-            <div class="brand-status">
-              <span class="status-indicator-dot" />
-              <span>RELAY ONLINE · 16.8K STATIONS</span>
             </div>
           </div>
         </div>
 
-        {/* Global search tuner input */}
         <form
           class="header-search"
           onSubmit={(e) => {
@@ -61,13 +56,17 @@ export function Header({
               placeholder="Поиск станции, жанра или потока..."
               aria-label="Поиск станции, жанра или потока"
             />
+            {searchQuery && (
+              <button type="button" class="header-search-clear" onClick={onSearchClear} aria-label="Очистить поиск">
+                ✕
+              </button>
+            )}
             <button type="submit" class="header-search-btn" aria-label="Искать">
               Найти
             </button>
           </div>
         </form>
 
-        {/* Account identity and logout */}
         <div class="header-account">
           {accountName ? (
             <>
@@ -77,7 +76,6 @@ export function Header({
                 </span>
                 <div class="account-details">
                   <span class="account-name">{accountName}</span>
-                  <span class="account-auth-tag">PASSKEY AUTH</span>
                 </div>
               </div>
               {onLogout && (

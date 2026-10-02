@@ -2,10 +2,17 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { api, type StationItem, type StationNowPlaying } from "../api";
 
 /**
- * Bottom persistent audio deck player.
- * Houses the HTML5 <audio> streaming node connected to /api/v1/stations/{id}/stream,
- * real-time SSE listener for ICY track title snapshots, buffer status,
- * master transport controls, and volume attenuation.
+ * Persistent bottom audio deck for the cabinet.
+ * Houses the single HTML5 audio streaming node connected to
+ * /api/v1/stations/{id}/stream plus the SSE listener for ICY track titles.
+ * The component is mounted once at cabinet level, so switching sections never
+ * recreates the audio element and playback continues uninterrupted.
+ *
+ * Every transport state is spelled out for the user: idle hint, connecting,
+ * live (with track title or an honest fallback), paused, and stream failure
+ * with an explicit retry action. The desktop panel exposes station switching,
+ * volume, and favorites; the compact mobile block keeps the station name,
+ * the track/status line, and a large play/pause control.
  */
 export function PlayerDeck({
   currentStation,
@@ -37,6 +44,8 @@ export function PlayerDeck({
   const audioRef = useRef<HTMLAudioElement>(null);
   const [buffering, setBuffering] = useState(false);
   const [streamError, setStreamError] = useState("");
+  // Bumped by the retry button to force a full reload of the same stream URL.
+  const [retryCount, setRetryCount] = useState(0);
 
   // Sync volume to audio element
   useEffect(() => {
@@ -45,7 +54,8 @@ export function PlayerDeck({
     }
   }, [volume]);
 
-  // Handle station change & stream playback
+  // (Re)load the stream when the station changes or the user retries a failure.
+  // load() is required so a retry of the same URL restarts resource selection.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -53,6 +63,7 @@ export function PlayerDeck({
     if (!currentStation) {
       audio.pause();
       audio.removeAttribute("src");
+      audio.load();
       setStreamError("");
       setBuffering(false);
       return;
@@ -60,8 +71,9 @@ export function PlayerDeck({
 
     const streamUrl = `/api/v1/stations/${encodeURIComponent(currentStation.id)}/stream`;
     setStreamError("");
-    setBuffering(true);
+    setBuffering(isPlaying);
     audio.src = streamUrl;
+    audio.load();
 
     if (isPlaying) {
       void audio.play().catch(() => {
@@ -72,7 +84,7 @@ export function PlayerDeck({
       audio.pause();
       setBuffering(false);
     }
-  }, [currentStation?.id]);
+  }, [currentStation?.id, retryCount]);
 
   // Handle play/pause state changes
   useEffect(() => {
@@ -142,28 +154,64 @@ export function PlayerDeck({
     };
   }, [currentStation?.id]);
 
+  /** Clears the failure and asks the cabinet to resume playback, which reloads the stream. */
+  const handleStreamRetry = () => {
+    if (!currentStation) return;
+    setStreamError("");
+    // Show "connecting" immediately: the reload effect only flips buffering on the next commit.
+    setBuffering(true);
+    setRetryCount((count) => count + 1);
+    onPlaybackStateChange?.(true);
+  };
+
   if (!currentStation) {
     return (
-      <div class="player-deck-bar player-deck-idle" role="region" aria-label="Радиопроигрыватель">
+      <div class="player-deck-bar player-deck-idle" role="region" aria-label="Плеер">
         <audio ref={audioRef} preload="none" />
         <div class="player-deck-inner">
           <div class="player-idle-text">
             <span class="idle-dot" />
-            <span>Выберите радиостанцию в каталоге для начала прямого эфира</span>
+            <span>Выберите радиостанцию в каталоге, чтобы начать слушать прямой эфир</span>
           </div>
         </div>
       </div>
     );
   }
 
-  const displayTitle = streamError
-    ? streamError
+  const statusKind = streamError
+    ? "error"
+    : buffering
+    ? "buffering"
+    : isPlaying
+    ? "playing"
+    : "paused";
+  const statusBadge = streamError
+    ? "Ошибка"
+    : buffering
+    ? "Подключение"
+    : isPlaying
+    ? "В эфире"
+    : "Пауза";
+  const trackText = streamError
+    ? "Поток временно недоступен или требуется вход"
     : buffering
     ? "Подключение к эфиру…"
     : trackTitle || (isPlaying ? "Прямой эфир" : "Пауза");
+  const playActionLabel = buffering
+    ? "Подключение к эфиру"
+    : isPlaying
+    ? "Приостановить"
+    : "Слушать";
+  // Codec and bitrate are shown only when the station actually reports them.
+  const streamMeta = [
+    currentStation.codec?.toUpperCase(),
+    currentStation.bitrate_kbps ? `${Math.round(currentStation.bitrate_kbps)} КБИТ/С` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <div class="player-deck-bar" role="region" aria-label="Радиопроигрыватель">
+    <div class="player-deck-bar" role="region" aria-label="Плеер">
       {/* Underlying streaming audio node */}
       <audio
         ref={audioRef}
@@ -189,7 +237,7 @@ export function PlayerDeck({
       />
 
       <div class="player-deck-inner">
-        {/* Track & Station Identity */}
+        {/* Station identity, track or status */}
         <div class="player-station-info">
           <div class="player-cover-wrap">
             <span class="station-thumb-placeholder player-thumb" aria-hidden="true">◉</span>
@@ -208,27 +256,22 @@ export function PlayerDeck({
               <span class="player-station-name truncate" title={currentStation.name}>
                 {currentStation.name}
               </span>
-              <span class="player-icy-badge">LIVE ICY</span>
+              <span class={`player-status-badge ${statusKind}`}>{statusBadge}</span>
             </div>
 
-            <div class="player-track-row">
-              <span
-                class={`track-status-dot ${
-                  streamError
-                    ? "error"
-                    : buffering
-                    ? "buffering"
-                    : isPlaying
-                    ? "playing"
-                    : "paused"
-                }`}
-              />
+            <div class="player-track-row" aria-live="polite">
+              <span class={`track-status-dot ${statusKind}`} />
               <span
                 class={`player-track-title truncate ${streamError ? "text-error" : ""}`}
-                title={displayTitle}
+                title={trackText}
               >
-                {displayTitle}
+                {trackText}
               </span>
+              {streamError && (
+                <button type="button" class="player-retry-btn" onClick={handleStreamRetry}>
+                  Повторить
+                </button>
+              )}
             </div>
           </div>
 
@@ -238,14 +281,15 @@ export function PlayerDeck({
               class={`player-star-btn ${isFavorite ? "active" : ""}`}
               onClick={onToggleFavorite}
               title={isFavorite ? "Удалить из избранного" : "В избранное"}
-              aria-label={isFavorite ? "В избранном" : "В избранное"}
+              aria-label={isFavorite ? "Удалить из избранного" : "В избранное"}
+              aria-pressed={isFavorite}
             >
               {isFavorite ? "★" : "☆"}
             </button>
           )}
         </div>
 
-        {/* Playback Controls Center */}
+        {/* Transport controls */}
         <div class="player-controls-wrap">
           <div class="player-buttons-row">
             {onPrevStation && (
@@ -266,8 +310,8 @@ export function PlayerDeck({
                 buffering ? "is-buffering" : isPlaying ? "is-playing" : "is-paused"
               }`}
               onClick={onTogglePlay}
-              title={isPlaying ? "Приостановить" : "Воспроизвести"}
-              aria-label={isPlaying ? "Приостановить" : "Воспроизвести"}
+              title={playActionLabel}
+              aria-label={playActionLabel}
             >
               {buffering ? "…" : isPlaying ? "⏸" : "▶"}
             </button>
@@ -284,27 +328,11 @@ export function PlayerDeck({
               </button>
             )}
           </div>
-
-          <div class="player-status-line">
-            <span class="relay-tag">DIRECT RELAY</span>
-            <span>·</span>
-            <span class="codec-tag font-mono-code">
-              {currentStation.codec?.toUpperCase() || "MP3"} ·{" "}
-              {currentStation.bitrate_kbps ? `${currentStation.bitrate_kbps} KBPS` : "320 KBPS"}
-            </span>
-          </div>
         </div>
 
-        {/* Volume & Cast Actions */}
+        {/* Stream metadata & volume */}
         <div class="player-extras-wrap">
-          <button
-            type="button"
-            class="cast-device-btn"
-            title="Отправить воспроизведение на RockCast"
-          >
-            <span class="cast-icon" aria-hidden="true">⎘</span>
-            <span>CAST: RockCast</span>
-          </button>
+          {streamMeta && <span class="player-meta font-mono-code">{streamMeta}</span>}
 
           {onVolumeChange && (
             <div class="volume-slider-wrap">

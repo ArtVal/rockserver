@@ -1,0 +1,42 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RockServer — привязка устройства</title>
+<style>body{margin:0;background:#101720}</style>
+</head>
+<body>
+<div id="rock-pair-preview" class="viz-dotted-background">
+  <style>
+    #rock-pair-preview { display:flex; justify-content:center; padding:18px 8px; }
+    #rock-pair-preview * { box-sizing:border-box; }
+    #rock-pair-preview .phone { --bg:#080b0f; --panel:#141b24; --line:#304252; --text:#edf3f8; --muted:#aab8c7; --amber:#f59e0b; --cyan:#77d4ff; width:min(390px,100%); min-height:665px; border:1px solid #44505e; border-radius:26px; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,Arial,sans-serif; padding:25px 18px 22px; box-shadow:0 15px 35px rgba(0,0,0,.25); }
+    #rock-pair-preview .brand { color:var(--cyan); font-size:12px; font-weight:800; letter-spacing:.12em; }
+    #rock-pair-preview h1 { font-size:25px; line-height:1.15; margin:9px 0 19px; }
+    #rock-pair-preview .card { background:var(--panel); border:1px solid var(--line); border-radius:13px; padding:17px; margin-bottom:12px; }
+    #rock-pair-preview .eyebrow { color:var(--cyan); font-size:11px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+    #rock-pair-preview h2 { font-size:18px; line-height:1.2; margin:7px 0 7px; }
+    #rock-pair-preview p { margin:0 0 14px; color:var(--muted); }
+    #rock-pair-preview .facts { display:grid; gap:11px; margin-top:14px; }
+    #rock-pair-preview .fact { border-top:1px solid var(--line); padding-top:10px; }
+    #rock-pair-preview .fact small { display:block; color:var(--muted); font-size:12px; margin-bottom:3px; }
+    #rock-pair-preview .fact strong { display:block; font-size:17px; letter-spacing:.04em; }
+    #rock-pair-preview .fact .phrase { color:var(--amber); }
+    #rock-pair-preview .action { width:100%; min-height:44px; border:0; border-radius:8px; background:var(--amber); color:#1e1406; font:700 14px system-ui,Arial,sans-serif; padding:10px; margin:4px 0 7px; }
+    #rock-pair-preview .secondary { background:#273544; color:var(--text); }
+    #rock-pair-preview .note { color:var(--muted); font-size:12px; padding:0 2px; }
+    #rock-pair-preview .success { color:#86efac; }
+  </style>
+  <div class="phone" aria-label="Мобильная страница привязки RockServer"><div class="brand">ROCK</div><h1>Подключение устройства</h1>
+    <section class="card" aria-label="Данные запроса"><div class="eyebrow">Проверьте, что это ваше устройство</div><h2>RockCast — Ваш компьютер</h2><div class="facts"><div class="fact"><small>Проверочная фраза</small><strong class="phrase">AMBER–DAWN</strong></div><div class="fact"><small>Короткий код</small><strong>AB12CD34</strong></div><div class="fact"><small>Действует до</small><strong>12:40</strong></div></div></section>
+    <section class="card stage" aria-live="polite"><h2>Подключить RockCast к аккаунту «rock1»?</h2><p>Будет подключено только показанное выше устройство.</p><button class="action next cursor-interaction">Подключить</button><button class="action secondary back cursor-interaction">Отмена</button></section>
+    <div class="note">Сверьте фразу и код с экраном RockCast. Подключайте только своё устройство.</div>
+  </div>
+  <script>
+    (()=>{const r=document.getElementById('rock-pair-preview');const s=r.querySelector('.stage');r.addEventListener('click',e=>{if(e.target.closest('.next'))s.innerHTML='<div class="eyebrow success">✓ Устройство подключено</div><h2>RockCast подключён к «rock1»</h2><p>Вернитесь в RockCast или закройте браузер.</p><button class="action secondary cursor-interaction">Открыть аккаунт и устройства</button>';if(e.target.closest('.back'))s.innerHTML='<h2>Подключение отменено</h2><p>Вернитесь в RockCast, если захотите начать заново.</p>'})})();
+  </script>
+</div>
+
+</body>
+</html>

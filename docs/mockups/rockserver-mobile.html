@@ -1,0 +1,107 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RockServer — каталог и плеер (mobile)</title>
+<style>body{margin:0;background:#101720}</style>
+</head>
+<body>
+<div id="rock-mobile" class="viz-dotted-background">
+  <style>
+    #rock-mobile { display:flex; justify-content:center; padding:18px 8px; }
+    #rock-mobile * { box-sizing:border-box; }
+    #rock-mobile .phone { --bg:#080d14; --surface:#121c28; --line:#2b3948; --text:#f5f7fa; --muted:#aab8c7; --orange:#ffa51f; --cyan:#42c8d6; width:min(390px,100%); height:760px; overflow:hidden; position:relative; border:1px solid #43505c; border-radius:26px; background:var(--bg); color:var(--text); font:14px/1.4 Inter,Arial,sans-serif; box-shadow:0 16px 38px rgba(0,0,0,.24); }
+    #rock-mobile button,#rock-mobile input { font:inherit; }
+    #rock-mobile button { border:0; color:inherit; }
+    #rock-mobile .screen { padding:17px 16px 150px; height:100%; overflow-y:auto; }
+    #rock-mobile .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    #rock-mobile .brand { font-weight:850; letter-spacing:.06em; }
+    #rock-mobile .brand span { color:var(--orange); }
+    #rock-mobile .avatar { width:32px; height:32px; border-radius:50%; background:#2b3947; display:grid; place-items:center; font-size:11px; color:var(--cyan); }
+    #rock-mobile .eyebrow { font-size:11px; font-weight:700; color:var(--cyan); text-transform:uppercase; letter-spacing:.13em; }
+    #rock-mobile h1 { font-size:27px; line-height:1.1; margin:5px 0 16px; }
+    #rock-mobile .search { display:flex; gap:9px; align-items:center; height:46px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:0 13px; margin-bottom:13px; color:var(--muted); }
+    #rock-mobile .search input { background:transparent; border:0; outline:0; min-width:0; width:100%; color:var(--text); font-size:16px; }
+    #rock-mobile .search input::placeholder { color:var(--muted); }
+    #rock-mobile .filters { display:flex; gap:6px; margin-bottom:20px; }
+    #rock-mobile .filter { white-space:nowrap; background:var(--surface); border:1px solid var(--line); padding:7px 10px; border-radius:8px; color:var(--muted); font-size:12px; }
+    #rock-mobile .filter.active { background:var(--orange); color:#271800; border-color:var(--orange); font-weight:750; }
+    #rock-mobile .section-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    #rock-mobile .section-title strong { font-size:16px; }
+    #rock-mobile .section-title span { color:var(--muted); font-size:12px; }
+    #rock-mobile .row { display:flex; gap:11px; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:12px; min-height:75px; margin-bottom:8px; }
+    #rock-mobile .row.current { border-color:#a87521; }
+    #rock-mobile .logo { flex:none; width:42px; height:42px; background:#304157; border-radius:9px; display:grid; place-items:center; color:var(--orange); font-weight:850; }
+    #rock-mobile .logo.purple { background:#433249; color:#e9b8f4; }
+    #rock-mobile .logo.blue { background:#1c4056; color:#92e3ff; }
+    #rock-mobile .station-text { min-width:0; flex:1; }
+    #rock-mobile .station-text strong { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #rock-mobile .station-text small { color:var(--muted); display:block; margin-top:3px; }
+    #rock-mobile .row button { background:transparent; color:var(--orange); font-size:17px; padding:5px; }
+    #rock-mobile .player { position:absolute; left:0; right:0; bottom:58px; height:95px; background:#182330; border-top:1px solid #80591e; padding:10px 15px; box-shadow:0 -8px 24px rgba(0,0,0,.22); }
+    #rock-mobile .player-top { display:flex; align-items:center; gap:9px; margin-bottom:7px; }
+    #rock-mobile .player-top .logo { width:28px; height:28px; font-size:11px; border-radius:6px; }
+    #rock-mobile .player-title { min-width:0; flex:1; font-size:13px; font-weight:750; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    #rock-mobile .live { color:var(--cyan); font-size:11px; font-weight:700; white-space:nowrap; }
+    #rock-mobile .player-bottom { display:flex; align-items:center; gap:8px; }
+    #rock-mobile .song { flex:1; min-width:0; color:var(--orange); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #rock-mobile .player-bottom button { background:var(--orange); color:#211500; width:39px; height:39px; border-radius:50%; font-weight:800; font-size:17px; }
+    #rock-mobile .bottom-nav { position:absolute; bottom:0; left:0; right:0; height:58px; border-top:1px solid var(--line); background:#0d1520; display:flex; justify-content:space-around; align-items:center; }
+    #rock-mobile .bottom-nav button { background:none; color:var(--muted); font-size:11px; display:grid; place-items:center; gap:1px; min-width:58px; }
+    #rock-mobile .bottom-nav button b { font-size:17px; line-height:1; font-weight:500; }
+    #rock-mobile .bottom-nav button.active { color:var(--orange); }
+
+#rock-mobile [hidden]{display:none!important}
+#rock-mobile .yh-native,#rock-mobile .yh{background:#121c28;border:1px solid #2b3948;border-radius:12px;padding:16px;margin:14px 0}
+#rock-mobile .yh-native small,#rock-mobile .yh-sensors small{display:block;color:#aab8c7;margin-top:4px}
+#rock-mobile .yh-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#rock-mobile .yh h2{margin:4px 0;font-size:22px}
+#rock-mobile .yh-status{color:#42c8d6;font-size:12px}
+#rock-mobile .yh-muted{color:#aab8c7}
+#rock-mobile .yh-state-label{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:#aab8c7;font-size:12px;margin:14px 0}
+#rock-mobile .yh-state{background:#172333;color:#f5f7fa;border:1px solid #2b3948;border-radius:6px;padding:8px;font:inherit}
+#rock-mobile .yh-sensors{border-top:1px solid #2b3948;padding-top:12px}
+#rock-mobile .yh-sensors p{display:flex;justify-content:space-between;gap:12px;margin:8px 0}
+#rock-mobile .yh-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+#rock-mobile .yh-actions button{padding:10px 12px;background:#172333;border:1px solid #2b3948;border-radius:8px;min-height:44px}
+#rock-mobile .yh-actions button[data-yh-action="connect"]{background:#ffa51f;color:#211500}
+  </style>
+  <div class="phone" aria-label="Мобильный макет RockServer"><div class="screen"><div class="head"><div class="brand">ROCK<span>SERVER</span></div><div class="avatar">RO</div></div><section data-catalog-view><div class="eyebrow">Прямой эфир</div><h1>Радиостанции</h1><label class="search">⌕ <input aria-label="Поиск радиостанций" placeholder="Станция или жанр"></label><div class="filters"><button class="filter active cursor-interaction">Все</button><button class="filter cursor-interaction">Рок</button><button class="filter cursor-interaction">Электроника</button><button class="filter cursor-interaction">Джаз</button><button class="filter cursor-interaction">Ещё ▾</button></div><div class="section-title"><strong>Сейчас слушают</strong><span>По популярности ▾</span></div><div class="row current"><div class="logo">РР</div><div class="station-text"><strong>Russian Rock — AMG Radio</strong><small>Россия · MP3 · 128 кбит/с</small></div><button aria-label="В избранное" class="cursor-interaction">☆</button></div><div class="row"><div class="logo purple">Г</div><div class="station-text"><strong>ГУСЬ.Рок</strong><small>Россия · MP3 · 320 кбит/с</small></div><button aria-label="Слушать ГУСЬ.Рок" class="cursor-interaction">▶</button></div><div class="row"><div class="logo blue">1</div><div class="station-text"><strong>Radio 1 Rock</strong><small>Болгария · AAC · 128 кбит/с</small></div><button aria-label="Слушать Radio 1 Rock" class="cursor-interaction">▶</button></div><div class="row"><div class="logo">RF</div><div class="station-text"><strong>ROCK FM</strong><small>Россия · MP3</small></div><button aria-label="Слушать ROCK FM" class="cursor-interaction">▶</button></div></section><section data-device-view hidden>
+<div class="eyebrow">Аккаунт и подключения</div><h1>Устройства</h1>
+<p class="yh-muted">RockCast, RockMobile и Яндекс Дом</p>
+<div class="yh-native"><strong>RockCast — компьютер</strong><small>Пример подключённого устройства</small></div>
+<section class="yh" aria-label="Яндекс Дом">
+<div class="yh-heading"><div><div class="eyebrow">Дом с Алисой</div><h2>Яндекс Дом</h2></div><span class="yh-status">Подключён</span></div>
+<label class="yh-state-label">Состояние в макете <select class="yh-state" aria-label="Состояние Яндекс Дома в макете"><option value="connected">Подключён</option><option value="disconnected">Не подключён</option><option value="empty">Нет датчиков</option><option value="loading">Загрузка</option><option value="error">Ошибка данных</option><option value="expired">Доступ истёк</option></select></label>
+<div class="yh-content" aria-live="polite">
+<p class="yh-muted">Демонстрационные показания</p><div class="yh-sensors"><div><strong>Датчик климата</strong><small>Гостиная</small><p>Температура <b>22,4 °C</b></p><p>Влажность <b>46 %</b></p><small>Пример обновления: 12:40</small></div></div>
+</div><div class="yh-actions"><button type="button" data-yh-action="refresh">Обновить показания</button><button type="button" data-yh-action="disconnect">Отключить Яндекс Дом</button></div>
+</section></section></div><div class="player" aria-label="Плеер"><div class="player-top"><div class="logo">РР</div><div class="player-title">Russian Rock — AMG Radio</div><div class="live">● В эфире</div></div><div class="player-bottom"><div class="song">Маша и Медведи — Рейкьявик</div><button class="pause cursor-interaction" aria-label="Приостановить">Ⅱ</button></div></div><nav class="bottom-nav" aria-label="Разделы"><button class="active cursor-interaction"><b>◉</b>Эфир</button><button class="cursor-interaction"><b>☆</b>Избранное</button><button class="cursor-interaction"><b>◷</b>История</button><button class="cursor-interaction"><b>◇</b>Устройства</button></nav></div>
+  <script>
+    (()=>{const r=document.getElementById('rock-mobile');r.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{r.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active')}));const p=r.querySelector('.pause');p.addEventListener('click',()=>{const paused=p.textContent==='Ⅱ';p.textContent=paused?'▶':'Ⅱ';p.setAttribute('aria-label',paused?'Воспроизвести':'Приостановить')});r.querySelectorAll('.bottom-nav button').forEach(b=>b.addEventListener('click',()=>{r.querySelectorAll('.bottom-nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active')}));})();
+  </script>
+</div>
+
+<script>
+(()=>{
+const root=document.getElementById('rock-mobile');
+const catalog=root.querySelector('[data-catalog-view]'),devices=root.querySelector('[data-device-view]');
+root.querySelectorAll('.bottom-nav button').forEach((button,index)=>button.addEventListener('click',()=>{
+root.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b===button));
+catalog.hidden=index===3;devices.hidden=index!==3;
+}));
+const select=root.querySelector('.yh-state'),content=root.querySelector('.yh-content'),actions=root.querySelector('.yh-actions'),status=root.querySelector('.yh-status');
+const sensors=content.innerHTML;
+const action=(name,label)=>'<button type="button" data-yh-action="'+name+'">'+label+'</button>';
+function show(state){
+select.value=state;status.textContent=select.options[select.selectedIndex].text;
+content.innerHTML=state==='connected'?sensors:'<p>'+({disconnected:'Подключите аккаунт Яндекса, чтобы видеть показания датчиков из приложения «Дом с Алисой».',empty:'Датчиков с доступными показаниями не найдено.',loading:'Обновляем показания…',error:'Не удалось получить данные Яндекс Дома.',expired:'Доступ к Яндекс Дому истёк. Подключите его снова.'}[state])+'</p>';
+actions.innerHTML=state==='loading'?'':state==='disconnected'||state==='expired'?action('connect',state==='expired'?'Подключить снова':'Подключить Яндекс Дом'):action('refresh',state==='error'?'Повторить':'Обновить показания')+action('disconnect','Отключить Яндекс Дом');
+}
+select.addEventListener('change',()=>show(select.value));
+actions.addEventListener('click',e=>{const button=e.target.closest('[data-yh-action]');if(!button)return;const name=button.dataset.yhAction;if(name==='disconnect'){if(confirm('Отключить Яндекс Дом? RockServer перестанет видеть показания датчиков.'))show('disconnected');}else show('connected');});
+})();
+</script>
+</body>
+</html>
