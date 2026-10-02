@@ -3388,5 +3388,4 @@ Checks: cargo fmt, strict Clippy and cargo test passed sequentially; external-se
 - Implemented the RockCast-style PCM amplitude detector: 350 ms startup calibration, 1 s silence after speech, 4.5 s initial silence timeout, and an 8 s continuous-speech guard. Automatic commit preserves buffered pre-ready speech and the final partial PCM frame; processing status comes from the session event.
 - Removed Finish and Cancel buttons. The microphone stays enabled and its second click cancels immediately during permission, capture, or recognition. Cancelled/late results cannot change the catalog; late permission grants release the microphone without opening a socket.
 - Verification: sequential frontend typecheck, tests (48/48), production build, cargo fmt --check, strict Clippy, cargo test. Physical microphone, noisy-room behavior, and live SpeechKit recognition require a manual user check; the detector is an amplitude heuristic, not a speech classifier. Database/live-provider tests remain gated.
-- Deployment: pending publication of this change.
-
+- Deployment: commit 27b2645 pushed to origin/master and deployed successfully via the standard script (status=succeeded, readiness=passed). Production serves the verified assets/index-BLi5pzay.js bundle; /health/ready returns HTTP 200. Real microphone acceptance remains a manual user check.
