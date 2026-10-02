@@ -3381,4 +3381,4 @@ Checks: cargo fmt, strict Clippy and cargo test passed sequentially; external-se
 - Goal: allow the voice search permission prompt when site settings say Ask.
 - Evidence: live response and both Caddy templates denied all microphone use via microphone=().
 - Scope: production/local Caddy Permissions-Policy and its deployment regression check; no voice transport change.
-- Result: only the current origin is allowed to request microphone access; camera and geolocation remain disabled. Deployment regression tests, cargo fmt, strict Clippy and cargo test passed sequentially; optional external/database tests remain gated. Deployment pending.
+- Result: only the current origin is allowed to request microphone access; camera and geolocation remain disabled. Deployment regression tests, cargo fmt, strict Clippy and cargo test passed sequentially; optional external/database tests remain gated. Fix commit 8c1f818 pushed to origin/master and deployed successfully; verified live policy microphone=(self) and readiness HTTP 200. Real microphone retry after page reload remains a user check.
