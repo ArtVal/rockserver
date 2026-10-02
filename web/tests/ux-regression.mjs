@@ -257,10 +257,12 @@ test("stage 9 voice search is an explicit mic button beside the single search wi
   assert.match(centre, /currentStation\?\.id === stationIdBeforeVoiceRef\.current/);
   assert.match(centre, /setIsPlaying\(false\)/);
   assert.match(centre, /setIsPlaying\(true\)/);
-  // Voice candidates are their own finite issuance: no re-query into the text
-  // search, no infinite scroll, and a distinct subtitle and empty state.
-  assert.match(centre, /voiceResultActive\s*\?\s*voice\.stations/);
-  assert.match(centre, /hasMore: false,\s*\n\s*loadingMore: false,/);
+  // RockCast flow: show voice candidates while a cleaned transcript starts the
+  // normal paged search, then expose the same load-more path as text search.
+  assert.match(centre, /cleanVoiceQuery\(voice\.transcript\)/);
+  assert.match(centre, /useStationPages\(voiceQuery \|\| activeSearch/);
+  assert.match(centre, /voicePreview \? voice\.stations : pages\.stations/);
+  assert.match(centre, /hasMore: pages\.hasMore/);
   assert.match(centre, /voiceQuery=\{voiceResultActive \? voice\.transcript : ""\}/);
   assert.match(view, /Голосовой запрос: «\$\{voiceQuery\}»/);
   assert.match(view, /По голосовому запросу ничего не найдено/);

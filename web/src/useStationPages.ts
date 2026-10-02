@@ -6,6 +6,7 @@ import { MAX_SEARCH_OFFSET, mergeServerPage, type MergedPage } from "./paging";
 const PAGE_SIZE = 20;
 
 type PagesState = {
+  query: string;
   stations: StationItem[];
   loading: boolean;
   loadingMore: boolean;
@@ -18,6 +19,7 @@ type PagesState = {
 };
 
 const initialPagesState: PagesState = {
+  query: "",
   stations: [],
   loading: false,
   loadingMore: false,
@@ -107,6 +109,7 @@ export function useStationPages(query: string, attempt: number) {
     const snapshot = retry ? undefined : cache.current.get(query);
     if (snapshot) {
       setState({
+        query,
         stations: snapshot.stations,
         loading: false,
         loadingMore: false,
@@ -120,7 +123,7 @@ export function useStationPages(query: string, attempt: number) {
       return;
     }
     if (retry) cache.current.delete(query);
-    setState({ ...initialPagesState, loading: true, hasMore: true });
+    setState({ ...initialPagesState, query, loading: true, hasMore: true });
     void loadPage(query, 0, [], generation.current);
   }, [query, attempt]);
 
@@ -134,6 +137,7 @@ export function useStationPages(query: string, attempt: number) {
   };
 
   return {
+    query: state.query,
     stations: state.stations,
     loading: state.loading,
     loadingMore: state.loadingMore,

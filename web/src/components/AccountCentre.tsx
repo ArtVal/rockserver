@@ -18,6 +18,19 @@ const GENRE_PRESETS = ["all", "rock", "electronic", "synthwave", "jazz", "classi
 /** How many already-synced favourite/history records one reveal step shows. */
 const PERSONAL_PAGE_SIZE = 24;
 
+// Keep in step with RockCast's clean_voice_query: remove spoken control words
+// before starting the paged station search.
+const VOICE_COMMAND_WORDS = new Set([
+  "включи", "включить", "поставь", "поставить", "запусти", "найди", "ищи",
+  "крути", "сыграй", "играй", "пожалуйста", "play", "find", "please",
+]);
+const cleanVoiceQuery = (transcript: string) => {
+  const words = transcript.toLowerCase().split(/\s+/)
+    .map((word) => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+    .filter((word) => word && !VOICE_COMMAND_WORDS.has(word));
+  return words.join(" ") || transcript.trim();
+};
+
 export type AccountState = "loading" | "anonymous" | "authenticated" | "expired" | "unavailable";
 
 export interface AccountCentreProps {
@@ -93,15 +106,17 @@ export function AccountCentre({
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   // Progressive reveal window for favourites/history; reset when the context changes.
   const [personalVisible, setPersonalVisible] = useState(PERSONAL_PAGE_SIZE);
-  // Voice search owns its own finite candidate list; see the effect below for
-  // how it replaces the catalog issuance without a second text query.
+  // Voice candidates remain visible while the recognized query loads its
+  // first catalog page, matching RockCast's voice-result flow.
   const voice = useVoiceSearch();
 
   const handleSearchChange = (query: string) => {
+    if (voice.status === "result") voice.dismiss();
     setSearchQuery(query);
   };
 
   const handleSearchSubmit = (query?: string) => {
+    if (voice.status === "result") voice.dismiss();
     const q = (query !== undefined ? query : searchQuery).trim();
     if (q) {
       setActiveSearch(q);
@@ -116,11 +131,13 @@ export function AccountCentre({
   };
 
   const handleSearchClear = () => {
+    if (voice.status === "result") voice.dismiss();
     setSearchQuery("");
     setActiveSearch("");
   };
 
   const handleTagSelect = (tag: string) => {
+    if (voice.status === "result") voice.dismiss();
     setSelectedTag(tag);
     setSearchQuery("");
     setActiveSearch("");
@@ -151,7 +168,8 @@ export function AccountCentre({
   }, [activeTab, searchQuery]);
 
   // Catalog issuance paging: one request at a time, server-sized offsets, cached per query.
-  const pages = useStationPages(activeSearch.trim() || selectedTag || "rock", searchAttempt);
+  const voiceQuery = voice.status === "result" ? cleanVoiceQuery(voice.transcript) : "";
+  const pages = useStationPages(voiceQuery || activeSearch.trim() || selectedTag || "rock", searchAttempt);
   const {
     favorites,
     favoriteStations,
@@ -207,20 +225,21 @@ export function AccountCentre({
     }
   }, [voiceSessionActive, isPlaying, currentStation?.id]);
 
-  // Voice results are their own issuance: the recognized transcript is never
-  // re-run through the text search, and any text query or genre filter the
-  // user starts dismisses them back to the paged catalog.
+  // Keep recognized words visible while using the same paged station search
+  // as typed queries; explicit typing or a genre selection leaves voice mode.
   const voiceResultActive = voice.status === "result";
   useEffect(() => {
-    if (voiceResultActive) setActiveTab("stations");
+    if (!voiceResultActive) return;
+    setActiveTab("stations");
+    setSearchQuery("");
+    setActiveSearch("");
+    setSelectedTag("");
   }, [voiceResultActive]);
-  useEffect(() => {
-    if (voiceResultActive && (activeSearch || selectedTag)) voice.dismiss();
-  }, [voiceResultActive, activeSearch, selectedTag, voice]);
 
   const handleToggleFavorite = (stationId: string) => {
     const stationItem =
       pages.stations.find((s) => s.id === stationId) ||
+      voice.stations.find((s) => s.id === stationId) ||
       favoriteStations.find((s) => s.id === stationId) ||
       history.find((s) => s.id === stationId) ||
       (currentStation?.id === stationId ? currentStation : undefined);
@@ -261,7 +280,7 @@ export function AccountCentre({
 
   // Build the list from the same IDs that drive each favorite button and count.
   const knownFavorites = new Map(
-    [...favoriteStations, ...history, ...pages.stations, ...(currentStation ? [currentStation] : [])]
+    [...favoriteStations, ...history, ...pages.stations, ...voice.stations, ...(currentStation ? [currentStation] : [])]
       .map((station) => [station.id, station] as const)
   );
   const savedStations = favorites.map((id) => knownFavorites.get(id) ?? {
@@ -277,24 +296,22 @@ export function AccountCentre({
     : [];
   const personalShown = filteredPersonal.slice(0, personalVisible);
 
-  // The voice candidate list is finite (the protocol caps it at 10), so it
-  // never pages and never merges with the offset-based text issuance.
-  const displayedStations = voiceResultActive
-    ? voice.stations
-    : isPersonalTab
-    ? personalShown
-    : pages.stations;
+  // RockCast keeps the voice candidates on screen until the first normal
+  // search page arrives; that page then supplies the total and next offset.
+  const voicePreview = voiceResultActive && !isPersonalTab && voice.stations.length > 0 &&
+    (!voiceQuery || pages.query !== voiceQuery || pages.loading || pages.error !== "");
+  const displayedStations = isPersonalTab ? personalShown : voicePreview ? voice.stations : pages.stations;
 
-  const listPaging: ListPaging = voiceResultActive
+  const listPaging: ListPaging = voicePreview
     ? {
         shownCount: voice.stations.length,
-        total: voice.stations.length,
-        hasMore: false,
-        loadingMore: false,
-        error: "",
+        total: undefined,
+        hasMore: Boolean(voiceQuery),
+        loadingMore: Boolean(voiceQuery) && !pages.error,
+        error: pages.error,
         boundary: false,
         itemLabel: "станции",
-        onLoadMore: () => undefined,
+        onLoadMore: () => setSearchAttempt((attempt) => attempt + 1),
       }
     : isPersonalTab
     ? {
@@ -380,7 +397,7 @@ export function AccountCentre({
         accountName={accountName}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
-        onSearchSubmit={handleSearchSubmit}
+        onSearchSubmit={voiceResultActive ? () => setSearchAttempt((attempt) => attempt + 1) : handleSearchSubmit}
         onSearchClear={handleSearchClear}
         onLogout={onLogout}
         logoutBusy={logoutBusy}
@@ -457,10 +474,10 @@ export function AccountCentre({
                 onPlayStation={handlePlayStation}
                 favorites={favorites}
                 onToggleFavorite={handleToggleFavorite}
-                loading={activeTab === "stations" && pages.loading && !voiceResultActive}
+                loading={activeTab === "stations" && pages.loading && !voicePreview}
                 searchQuery={searchQuery}
-                onSearchSubmit={handleSearchSubmit}
-                searchError={activeTab === "stations" && !voiceResultActive ? pages.error : ""}
+                onSearchSubmit={voiceResultActive ? () => setSearchAttempt((attempt) => attempt + 1) : handleSearchSubmit}
+                searchError={activeTab === "stations" ? pages.error : ""}
                 selectedTag={selectedTag}
                 activeTab={activeTab}
                 favoriteCount={savedStations.length}

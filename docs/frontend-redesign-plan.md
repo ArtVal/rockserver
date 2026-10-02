@@ -80,3 +80,7 @@
 ## Stage 9 follow-up: automatic speech completion (2026-10-02)
 
 Implemented automatic completion after 1 s of silence following speech, with initial silence and continuous-speech guards matching RockCast. Finish/Cancel controls are removed; a second click on the microphone cancels during permission, recording, or recognition. Protocol and PCM fixture tests cover automatic commit, short pauses, silence, pre-ready buffering, immediate cancellation and late permission grants (48 frontend checks). Real-microphone and noisy-room acceptance remain a manual user check.
+
+## Stage 9 follow-up: paged voice results (2026-10-02)
+
+RockCast shows the first voice candidates, cleans command words such as «включи», then performs a normal 20-station paged search from the recognized query. The cabinet now follows that flow. The 10 candidates from the voice WebSocket are a temporary preview, and further stations come from `/api/v1/search` through the existing infinite-scroll path. This supersedes the earlier stage-9 description of voice results as a permanently finite list.

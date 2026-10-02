@@ -2,6 +2,12 @@
 
 Last updated: 2026-10-02
 
+## Voice search paging follows RockCast — 2026-10-02
+
+- Root cause: `/api/v1/voice/stream` returns at most 10 candidates, and the cabinet previously treated that response as the complete list with `hasMore=false`.
+- RockCast behavior confirmed in `src/app/actions/poll/voice.rs` and `src/app/actions/catalog.rs`: show candidates, strip spoken command words from the transcript, then start normal paginated station search and continue loading by offset. The cabinet now follows that sequence using its existing 20-station paging hook and infinite-scroll footer. Text typing and genre selection leave voice results explicitly; a failed first page retains the candidate preview and offers retry.
+- Verification: sequential frontend typecheck, 48/48 frontend checks, frontend build, cargo fmt --check, strict Clippy, and cargo test passed. Real voice recognition and end-to-end scrolling remain for a manual user pass. Deployment pending.
+
 ## Automatic browser voice search — 2026-10-02
 
 - Implemented the RockCast-style PCM amplitude detector: 350 ms startup calibration, 1 s silence after speech, 4.5 s initial silence timeout, and an 8 s continuous-speech guard. Automatic commit preserves buffered pre-ready speech and the final partial PCM frame; processing status comes from the session event.

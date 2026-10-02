@@ -3389,3 +3389,9 @@ Checks: cargo fmt, strict Clippy and cargo test passed sequentially; external-se
 - Removed Finish and Cancel buttons. The microphone stays enabled and its second click cancels immediately during permission, capture, or recognition. Cancelled/late results cannot change the catalog; late permission grants release the microphone without opening a socket.
 - Verification: sequential frontend typecheck, tests (48/48), production build, cargo fmt --check, strict Clippy, cargo test. Physical microphone, noisy-room behavior, and live SpeechKit recognition require a manual user check; the detector is an amplitude heuristic, not a speech classifier. Database/live-provider tests remain gated.
 - Deployment: commit 27b2645 pushed to origin/master and deployed successfully via the standard script (status=succeeded, readiness=passed). Production serves the verified assets/index-BLi5pzay.js bundle; /health/ready returns HTTP 200. Real microphone acceptance remains a manual user check.
+
+## Voice search paging follows RockCast — 2026-10-02
+
+- Root cause: `/api/v1/voice/stream` returns at most 10 candidates, and the cabinet previously treated that response as the complete list with `hasMore=false`.
+- RockCast behavior confirmed in `src/app/actions/poll/voice.rs` and `src/app/actions/catalog.rs`: show candidates, strip spoken command words from the transcript, then start normal paginated station search and continue loading by offset. The cabinet now follows that sequence using its existing 20-station paging hook and infinite-scroll footer. Text typing and genre selection leave voice results explicitly; a failed first page retains the candidate preview and offers retry.
+- Verification: sequential frontend typecheck, 48/48 frontend checks, frontend build, cargo fmt --check, strict Clippy, and cargo test passed. Real voice recognition and end-to-end scrolling remain for a manual user pass. Deployment pending.
