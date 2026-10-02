@@ -2826,3 +2826,7 @@ Current limitations: playback was verified against the local fixture WAV streams
 ## Frontend follow-up stages — 2026-10-02
 
 The user reports the deployed redesign works. Stages 8 (infinite list loading) and 9 (browser voice search) are now planned in docs/frontend-redesign-plan.md. Existing search pagination and voice streaming contracts were inspected; browser voice auth/audio compatibility is explicitly a prerequisite, not assumed implemented. These stages are planning only.
+
+## Browser microphone policy fix — 2026-10-02
+
+The live HTTPS response was verified to send `Permissions-Policy: camera=(), microphone=(), geolocation=()`, which blocks getUserMedia before the browser can ask for permission. Both Caddy templates now allow microphone=(self), retaining camera/location denial and excluding other origins. A deployment-template regression check covers the policy. Deployment tests, cargo fmt, strict Clippy and cargo test passed. Deployment is pending in this entry.

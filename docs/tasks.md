@@ -3375,3 +3375,10 @@ Checks: cargo fmt, strict Clippy and cargo test passed sequentially; external-se
 - Result: authenticated traffic renews a 30-day sliding idle window that can never extend past 180 days from the sign-in; the cookie Max-Age matches the absolute bound; reaching either bound requires a fresh passkey ceremony; logout, CSRF, trusted-proxy checks, and the fresh-passkey gate for account deletion are unchanged; pre-existing sessions are not extended by the migration.
 - Checks: sequential `cargo fmt --check`, strict Clippy, `cargo test` — all passed; the new PostgreSQL integration test stays behind the `TEST_DATABASE_URL` gate and was not executed (no disposable database configured); web checks unaffected and already green at 44/44 from the stage-8/9 commit.
 - Status: complete and deployed. Commits b03c463 (stages 8–9) and ddc1fb6 (sessions) pushed to origin/master; production deploy via deploy/ops-001-d.ps1 reported status=succeeded, readiness=passed; the live site serves the verified build (assets/index-BtS9bSRs.js), /voice-worklet.js, and answers /api/v1/voice/stream with the contractual 400 for non-upgrade requests.
+
+## Fix first-party microphone permission — 2026-10-02
+
+- Goal: allow the voice search permission prompt when site settings say Ask.
+- Evidence: live response and both Caddy templates denied all microphone use via microphone=().
+- Scope: production/local Caddy Permissions-Policy and its deployment regression check; no voice transport change.
+- Result: only the current origin is allowed to request microphone access; camera and geolocation remain disabled. Deployment regression tests, cargo fmt, strict Clippy and cargo test passed sequentially; optional external/database tests remain gated. Deployment pending.

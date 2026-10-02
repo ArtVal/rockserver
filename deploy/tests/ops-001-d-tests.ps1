@@ -72,6 +72,13 @@ try {
     $remote = Get-Content -Raw (Join-Path $root 'deploy/remote-ops-001-d.sh')
     $compose = Get-Content -Raw (Join-Path $root 'deploy/compose.yaml')
     $productionCompose = Get-Content -Raw (Join-Path $root 'deploy/compose.production.yaml')
+    # Voice capture must be permitted for this origin without opening camera/location access.
+    foreach ($template in @('deploy/Caddyfile.production.template', 'deploy/Caddyfile.local')) {
+        $headers = Get-Content -Raw (Join-Path $root $template)
+        if ($headers -notmatch 'Permissions-Policy "camera=\(\), microphone=\(self\), geolocation=\(\)"') {
+            throw "First-party microphone policy is missing or too broad: $template"
+        }
+    }
     if ($launcher -match 'ghcr|docker push|docker pull|SshPassword') { throw 'launcher still has a registry or password dependency' }
     if ($launcher -notmatch 'docker image save' -or $remote -notmatch 'docker image load') { throw 'registry-free artifact transfer is missing' }
     if ($remote -notmatch 'transferred image artifact checksum mismatch' -or $remote -notmatch 'revision label binds that verified artifact to commit' -or $remote -match 'loaded image ID does not match') { throw 'cross-engine image artifact verification is not portable' }

@@ -5,7 +5,7 @@
         Referrer-Policy "no-referrer"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Permissions-Policy "camera=(), microphone=(self), geolocation=()"
         -Server
     }
     @api path /api/v1/* /health/*
