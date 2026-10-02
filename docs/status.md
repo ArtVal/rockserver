@@ -2,6 +2,13 @@
 
 Last updated: 2026-10-02
 
+## DEPLOY: stages 8–9 and sliding browser sessions deployed (2026-10-02)
+
+Release commits `b03c463` (stage 8 infinite paging + stage 9 voice search) and `ddc1fb6` (long-lived sliding browser sessions) were pushed to `origin/master` and deployed to the production VPS via `deploy/ops-001-d.ps1 -Action deploy`:
+- Remote deploy status: `status=succeeded` (worker PID 1608359, `log=/home/rockserver/logs/deploy-ddc1fb6e7319448238562996d4ce371347cc816f.log`); image `rockserver:sha-ddc1fb6e7319448238562996d4ce371347cc816f` (`sha256:7df5d3124e092a1eb190e96b76e4fa0401b3996f6d199b10ba5ba2f29f0f74e5`), readiness `readiness=passed`, 4 allowlisted Yandex env keys copied.
+- Post-deploy verification on `https://rockplatform.win/`: home and `/health/ready` return HTTP 200 (account migrations including `0026_add_browser_session_absolute_expiry.sql` are applied before readiness passes); the site serves `assets/index-BtS9bSRs.js` — the exact bundle hash of the locally verified stage-8/9 build; `/voice-worklet.js` is served with `text/javascript`; `GET /api/v1/voice/stream` without a WebSocket upgrade answers 400 exactly per the OpenAPI contract, and `POST /api/v1/auth/browser-session` from a direct peer is refused with 403 as before (trusted-proxy path unchanged).
+- Current working state: the deployed cabinet now includes table-by-default catalog with infinite scroll, browser voice search (anonymous voice stream, QA-fixture verified; real-microphone recognition still pending a manual user pass), and sign-in sessions with a 30-day sliding idle window capped at 180 days. Pending user verification on real devices: passkey sign-in persistence across weeks, real-microphone voice search, and external radio playback.
+
 ## AUTH-001: long-lived sliding browser sessions (2026-10-02)
 
 Browser sign-in now behaves like mainstream consumer sites instead of expiring after a fixed 30 minutes. No auth semantics beyond lifetime changed: passkey ceremonies, CSRF, the trusted-proxy proof, logout revocation, and the fresh-passkey requirement for account deletion are untouched.
