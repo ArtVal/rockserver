@@ -1,5 +1,16 @@
 # Task log
 
+## 2026-10-02 — DEPLOY: Live track metadata synchronization in active station card deployed to staging
+
+- Goal: build, deploy, and verify release commit `84a4854` on the staging VPS via `deploy/ops-001-d.ps1`.
+- Scope:
+  - Built immutable container images `rockserver:sha-84a485455cdaed14fcb47f273c29df63ff3897dd` (`sha256:412106ec45fa8d3befa150e40eb08f0d86f9a4acea7ce00fbfec082f62fc9adf`) and `rockserver-caddy:sha-84a485455cdaed14fcb47f273c29df63ff3897dd`.
+  - Executed automated staging deployment via `deploy/ops-001-d.ps1 -Action deploy`.
+  - Verified remote execution: worker PID 1426573 completed with `status=succeeded`, remote readiness probe passed (`readiness=passed`).
+  - Verified live deployment: `https://rockplatform.win/` loaded new assets bundle (`index-DDUlj5LE.js` and `index-CZPFtbEa.css`).
+- Checks: `deploy/ops-001-d.ps1 -Action deploy` returned exit code 0, `status=succeeded`, `readiness=passed`.
+- Status: **deployed** as commit `84a4854`.
+
 ## 2026-10-02 — WEB-UI-008: live track metadata synchronization in active station card
 
 - Goal: synchronize live track metadata between the bottom player deck and the active station card, replacing genre tags with real song metadata and preventing the track metadata block from disappearing when paused.

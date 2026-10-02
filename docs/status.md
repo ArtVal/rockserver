@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-02
 
+## DEPLOY: Live track metadata synchronization in active station card deployed to staging (2026-10-02)
+
+Release commit `84a4854` was successfully built and deployed to the staging VPS via `deploy/ops-001-d.ps1`:
+- Images built:
+  - `rockserver:sha-84a485455cdaed14fcb47f273c29df63ff3897dd` (`sha256:412106ec45fa8d3befa150e40eb08f0d86f9a4acea7ce00fbfec082f62fc9adf`)
+  - `rockserver-caddy:sha-84a485455cdaed14fcb47f273c29df63ff3897dd`
+- Remote deploy status: `status=succeeded` (`log=/home/rockserver/logs/deploy-84a485455cdaed14fcb47f273c29df63ff3897dd.log`).
+- Remote readiness probe verified: `readiness=passed`.
+- Current working state: live song metadata is perfectly synchronized between the bottom player deck and active station card in both grid and table views; paused state displays `⏸` and preserves song metadata instead of disappearing.
+- Next step: monitor user feedback and telemetry in staging.
+
 ## WEB-UI-008: Live track metadata synchronization in active station card (2026-10-02)
 
 Resolved active station card showing genre tags instead of song metadata and disappearing on pause:
